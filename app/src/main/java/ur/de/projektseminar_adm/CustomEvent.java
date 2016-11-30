@@ -6,6 +6,7 @@ import android.location.Geocoder;
 
 import com.google.android.gms.maps.model.LatLng;
 import com.google.api.client.util.DateTime;
+import com.google.api.services.calendar.model.Event;
 import com.google.api.services.calendar.model.EventDateTime;
 
 import java.io.Serializable;
@@ -24,16 +25,32 @@ public class CustomEvent implements Serializable {
         return ident;
     }
 
+    public void setIdent(String ident){
+        this.ident = ident;
+    }
+
     public String getLocation(){
         return location;
+    }
+
+    public void setLocation(String location){
+        this.location = location;
     }
 
     public EventDateTime getStart(){
         return startTime;
     }
 
+    public void setStart(EventDateTime startTime){
+        this.startTime = startTime;
+    }
+
     public EventDateTime getEndTime(){
         return endTime;
+    }
+
+    public void setEndTime(EventDateTime endTime){
+        this.endTime = endTime;
     }
     public LatLng getLocationFromAddress(Context context){
 

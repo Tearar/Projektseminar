@@ -63,6 +63,9 @@ public class MainActivity extends Activity
     private static final String PREF_ACCOUNT_NAME = "accountName";
     private static final String[] SCOPES = { CalendarScopes.CALENDAR_READONLY };
 
+
+    private ArrayList<CustomEvent> eventList = new ArrayList<CustomEvent>();
+
     /**
      * Create the main activity.
      * @param savedInstanceState previously saved instance data.
@@ -373,6 +376,14 @@ public class MainActivity extends Activity
                     start = event.getStart().getDate();
 
                 }
+
+                CustomEvent customEvent = new CustomEvent();
+                customEvent.setIdent(event.getId());
+                customEvent.setLocation(event.getLocation());
+                customEvent.setStart(event.getStart());
+                customEvent.setEndTime(event.getEnd());
+                eventList.add(customEvent);
+
                 eventStrings.add(
                         String.format("%s (%s)", event.getSummary(), start));
             }

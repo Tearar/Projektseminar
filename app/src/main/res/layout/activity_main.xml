@@ -10,4 +10,21 @@
     android:paddingTop="@dimen/activity_vertical_margin"
     tools:context="ur.de.projektseminar_adm.MainActivity">
 
+    <Button
+        android:text="Write CSV"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:id="@+id/csvbutton"
+        android:layout_alignParentBottom="true"
+        android:layout_alignLeft="@+id/apibutton"
+        android:layout_alignStart="@+id/apibutton"
+        android:layout_marginBottom="20dp" />
+
+    <Button
+        android:text="Call API"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:id="@+id/apibutton"
+        android:layout_alignParentTop="true"
+        android:layout_centerHorizontal="true" />
 </RelativeLayout>

@@ -18,15 +18,15 @@ import java.util.List;
 
 public class CustomEvent implements Serializable {
 
-    private String ident, location;
+    private String title, location;
     private EventDateTime startTime, endTime;
 
-    public String getIdent(){
-        return ident;
+    public String getTitle(){
+        return title;
     }
 
-    public void setIdent(String ident){
-        this.ident = ident;
+    public void setTitle(String title){
+        this.title = title;
     }
 
     public String getLocation(){

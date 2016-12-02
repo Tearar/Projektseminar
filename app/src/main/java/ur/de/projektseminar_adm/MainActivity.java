@@ -17,6 +17,7 @@ import com.google.api.services.calendar.CalendarScopes;
 import com.google.api.client.util.DateTime;
 
 import com.google.api.services.calendar.model.*;
+import com.opencsv.CSVWriter;
 
 import android.Manifest;
 import android.accounts.AccountManager;
@@ -33,12 +34,16 @@ import android.os.Bundle;
 import android.support.annotation.NonNull;
 import android.text.TextUtils;
 import android.text.method.ScrollingMovementMethod;
+import android.util.Log;
 import android.view.View;
 import android.view.ViewGroup;
 import android.widget.Button;
 import android.widget.LinearLayout;
 import android.widget.TextView;
+import android.widget.Toast;
 
+import java.io.File;
+import java.io.FileWriter;
 import java.io.IOException;
 import java.util.ArrayList;
 import java.util.Arrays;
@@ -51,7 +56,7 @@ public class MainActivity extends Activity
         implements EasyPermissions.PermissionCallbacks {
     GoogleAccountCredential mCredential;
     private TextView mOutputText;
-    private Button mCallApiButton;
+    private Button mCallApiButton, mWriteToStorageButton;
     ProgressDialog mProgress;
 
     static final int REQUEST_ACCOUNT_PICKER = 1000;
@@ -64,7 +69,8 @@ public class MainActivity extends Activity
     private static final String[] SCOPES = { CalendarScopes.CALENDAR_READONLY };
 
 
-    private ArrayList<CustomEvent> eventList = new ArrayList<CustomEvent>();
+
+    private List<String> eventStrings = new ArrayList<String>();
 
     /**
      * Create the main activity.
@@ -73,6 +79,8 @@ public class MainActivity extends Activity
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
+        //setContentView(R.layout.activity_main);
+
         LinearLayout activityLayout = new LinearLayout(this);
         LinearLayout.LayoutParams lp = new LinearLayout.LayoutParams(
                 LinearLayout.LayoutParams.MATCH_PARENT,
@@ -96,7 +104,18 @@ public class MainActivity extends Activity
                 mCallApiButton.setEnabled(true);
             }
         });
+
+        mWriteToStorageButton = new Button(this);
+        mWriteToStorageButton.setText("WriteCSV");
+        mWriteToStorageButton.setOnClickListener(new View.OnClickListener(){
+            public void onClick(View v){
+                mWriteToStorageButton.setEnabled(false);
+                writeCSV(eventStrings);
+                mWriteToStorageButton.setEnabled(true);
+            }
+        });
         activityLayout.addView(mCallApiButton);
+        activityLayout.addView(mWriteToStorageButton);
 
         mOutputText = new TextView(this);
         mOutputText.setLayoutParams(tlp);
@@ -357,11 +376,12 @@ public class MainActivity extends Activity
          */
         private List<String> getDataFromApi() throws IOException {
             // List the next 10 events from the primary calendar.
-            DateTime now = new DateTime(System.currentTimeMillis());
-            List<String> eventStrings = new ArrayList<String>();
+            //DateTime now = new DateTime(System.currentTimeMillis());
+            DateTime date = new DateTime("2016-10-01T00:00:00-08:00");
+
             Events events = mService.events().list("primary")
                     .setMaxResults(10)
-                    .setTimeMin(now)
+                    .setTimeMin(date)
                     .setOrderBy("startTime")
                     .setSingleEvents(true)
                     .execute();
@@ -370,6 +390,7 @@ public class MainActivity extends Activity
 
             for (Event event : items) {
                 DateTime start = event.getStart().getDateTime();
+                DateTime end = event.getEnd().getDateTime();
                 if (start == null) {
                     // All-day events don't have start times, so just use
                     // the start date.
@@ -377,17 +398,23 @@ public class MainActivity extends Activity
 
                 }
 
-                CustomEvent customEvent = new CustomEvent();
-                customEvent.setIdent(event.getId());
+                /*CustomEvent customEvent = new CustomEvent();
+                customEvent.setTitle(event.getSummary());
                 customEvent.setLocation(event.getLocation());
                 customEvent.setStart(event.getStart());
                 customEvent.setEndTime(event.getEnd());
                 eventList.add(customEvent);
+                Log.i("Aktueller Termin: ", event.getSummary());*/
 
                 eventStrings.add(
-                        String.format("%s (%s)", event.getSummary(), start));
+                        String.format("%s, %s, %s, %s", event.getSummary(), start, end, event.getLocation()));
+
             }
+
             return eventStrings;
+
+
+
         }
 
 
@@ -403,7 +430,7 @@ public class MainActivity extends Activity
             if (output == null || output.size() == 0) {
                 mOutputText.setText("No results returned.");
             } else {
-                output.add(0, "Data retrieved using the Google Calendar API:");
+                //output.add(0, "Data retrieved using the Google Calendar API:");
                 mOutputText.setText(TextUtils.join("\n", output));
             }
         }
@@ -428,5 +455,34 @@ public class MainActivity extends Activity
                 mOutputText.setText("Request cancelled.");
             }
         }
+
+
     }
+    private void writeCSV(List<String>eventStrings){
+
+        String baseDir = android.os.Environment.getExternalStorageDirectory().getAbsolutePath();
+        String fileName = "CalendarData.csv";
+        String filePath = baseDir + File.separator + fileName;
+        //File f = new File(filePath);
+        //String filePath = "/sdcard/myfile.csv";
+        CSVWriter writer = null;
+
+
+        //Convert List to Array
+        String[]stringArray = new String[eventStrings.size()];
+        stringArray = eventStrings.toArray(stringArray);
+
+        try{
+            writer = new CSVWriter(new FileWriter(filePath), '\n');
+            writer.writeNext(stringArray);
+            writer.close();
+            Toast.makeText(this, "Success", Toast.LENGTH_LONG).show();
+        }
+        catch (IOException e){
+            Log.d("Schreibefehler", "Fehler");
+        }
+
+    }
+
+
 }

@@ -11,7 +11,7 @@
     <application
         android:allowBackup="true"
         android:icon="@mipmap/ic_launcher"
-        android:label="Google Calendar API Android Quickstart"
+        android:label="Projektseminar"
         android:theme="@style/AppTheme" >
         <activity
             android:name=".MainActivity"

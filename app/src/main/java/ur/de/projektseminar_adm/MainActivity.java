@@ -13,6 +13,7 @@ import com.google.api.client.json.JsonFactory;
 import com.google.api.client.json.jackson2.JacksonFactory;
 import com.google.api.client.util.ExponentialBackOff;
 
+import com.google.api.services.calendar.Calendar;
 import com.google.api.services.calendar.CalendarScopes;
 import com.google.api.client.util.DateTime;
 
@@ -23,6 +24,7 @@ import android.Manifest;
 import android.accounts.AccountManager;
 import android.app.Activity;
 import android.app.Dialog;
+import android.app.DialogFragment;
 import android.app.ProgressDialog;
 import android.content.Context;
 import android.content.Intent;
@@ -40,14 +42,15 @@ import android.view.ViewGroup;
 import android.widget.Button;
 import android.widget.LinearLayout;
 import android.widget.TextView;
+import android.widget.TimePicker;
 import android.widget.Toast;
+
+import org.w3c.dom.Text;
 
 import java.io.File;
 import java.io.FileWriter;
 import java.io.IOException;
-import java.util.ArrayList;
-import java.util.Arrays;
-import java.util.List;
+import java.util.*;
 
 import pub.devrel.easypermissions.AfterPermissionGranted;
 import pub.devrel.easypermissions.EasyPermissions;
@@ -56,20 +59,19 @@ public class MainActivity extends Activity
         implements EasyPermissions.PermissionCallbacks {
     GoogleAccountCredential mCredential;
     private TextView mOutputText;
-    private Button mCallApiButton, mWriteToStorageButton;
+    private Button mCallApiButton, mWriteToStorageButton, mPickTimeButton;
     ProgressDialog mProgress;
 
     static final int REQUEST_ACCOUNT_PICKER = 1000;
     static final int REQUEST_AUTHORIZATION = 1001;
     static final int REQUEST_GOOGLE_PLAY_SERVICES = 1002;
     static final int REQUEST_PERMISSION_GET_ACCOUNTS = 1003;
+    static final int DIALOG_ID = 0;
+    int hour, minute;
 
     private static final String BUTTON_TEXT = "Call Google Calendar API";
     private static final String PREF_ACCOUNT_NAME = "accountName";
     private static final String[] SCOPES = { CalendarScopes.CALENDAR_READONLY };
-
-
-
     private List<String> eventStrings = new ArrayList<String>();
 
     /**
@@ -79,22 +81,10 @@ public class MainActivity extends Activity
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
-        //setContentView(R.layout.activity_main);
+        setContentView(R.layout.activity_main);
 
-        LinearLayout activityLayout = new LinearLayout(this);
-        LinearLayout.LayoutParams lp = new LinearLayout.LayoutParams(
-                LinearLayout.LayoutParams.MATCH_PARENT,
-                LinearLayout.LayoutParams.MATCH_PARENT);
-        activityLayout.setLayoutParams(lp);
-        activityLayout.setOrientation(LinearLayout.VERTICAL);
-        activityLayout.setPadding(16, 16, 16, 16);
-
-        ViewGroup.LayoutParams tlp = new ViewGroup.LayoutParams(
-                ViewGroup.LayoutParams.WRAP_CONTENT,
-                ViewGroup.LayoutParams.WRAP_CONTENT);
-
-        mCallApiButton = new Button(this);
-        mCallApiButton.setText(BUTTON_TEXT);
+        mOutputText = (TextView)findViewById(R.id.mOutPutText);
+        mCallApiButton = (Button)findViewById(R.id.mCallApiButton);
         mCallApiButton.setOnClickListener(new View.OnClickListener() {
             @Override
             public void onClick(View v) {
@@ -104,9 +94,7 @@ public class MainActivity extends Activity
                 mCallApiButton.setEnabled(true);
             }
         });
-
-        mWriteToStorageButton = new Button(this);
-        mWriteToStorageButton.setText("WriteCSV");
+        mWriteToStorageButton = (Button)findViewById(R.id.mWriteToStorageButton);
         mWriteToStorageButton.setOnClickListener(new View.OnClickListener(){
             public void onClick(View v){
                 mWriteToStorageButton.setEnabled(false);
@@ -114,30 +102,16 @@ public class MainActivity extends Activity
                 mWriteToStorageButton.setEnabled(true);
             }
         });
-        activityLayout.addView(mCallApiButton);
-        activityLayout.addView(mWriteToStorageButton);
-
-        mOutputText = new TextView(this);
-        mOutputText.setLayoutParams(tlp);
-        mOutputText.setPadding(16, 16, 16, 16);
-        mOutputText.setVerticalScrollBarEnabled(true);
-        mOutputText.setMovementMethod(new ScrollingMovementMethod());
-        mOutputText.setText(
-                "Click the \'" + BUTTON_TEXT +"\' button to test the API.");
-        activityLayout.addView(mOutputText);
+        mPickTimeButton = (Button)findViewById(R.id.mPickTimeButton);
 
         mProgress = new ProgressDialog(this);
         mProgress.setMessage("Calling Google Calendar API ...");
-
-        setContentView(activityLayout);
 
         // Initialize credentials and service object.
         mCredential = GoogleAccountCredential.usingOAuth2(
                 getApplicationContext(), Arrays.asList(SCOPES))
                 .setBackOff(new ExponentialBackOff());
     }
-
-
 
     /**
      * Attempt to call the API, after verifying that all the preconditions are
@@ -377,7 +351,9 @@ public class MainActivity extends Activity
         private List<String> getDataFromApi() throws IOException {
             // List the next 10 events from the primary calendar.
             //DateTime now = new DateTime(System.currentTimeMillis());
-            DateTime date = new DateTime("2016-10-01T00:00:00-08:00");
+            DateTime date = new DateTime("2016-10-05T00:00:00-08:00");
+            int dayOfWeek = getDayofWeek(date);
+            Log.d("Wochentag: ", String.valueOf(dayOfWeek));
 
             Events events = mService.events().list("primary")
                     .setMaxResults(10)
@@ -385,6 +361,7 @@ public class MainActivity extends Activity
                     .setOrderBy("startTime")
                     .setSingleEvents(true)
                     .execute();
+
 
             List<Event> items = events.getItems();
 
@@ -395,20 +372,17 @@ public class MainActivity extends Activity
                     // All-day events don't have start times, so just use
                     // the start date.
                     start = event.getStart().getDate();
-
                 }
 
-                /*CustomEvent customEvent = new CustomEvent();
-                customEvent.setTitle(event.getSummary());
-                customEvent.setLocation(event.getLocation());
-                customEvent.setStart(event.getStart());
-                customEvent.setEndTime(event.getEnd());
-                eventList.add(customEvent);
-                Log.i("Aktueller Termin: ", event.getSummary());*/
+                int dayOfWeekEvent = getDayofWeek(start);
 
-                eventStrings.add(
-                        String.format("%s, %s, %s, %s", event.getSummary(), start, end, event.getLocation()));
+                //Returns only the events where dayOfWeek matches
+                if(dayOfWeek == dayOfWeekEvent) {
 
+                    String formattedString = formatString(event.getSummary(), start, end, event.getLocation());
+                    eventStrings.add(formattedString);
+                    //eventStrings.add(String.format("%s, %s, %s, %s", event.getSummary(), start, end, event.getLocation()));
+                }
             }
 
             return eventStrings;
@@ -463,10 +437,7 @@ public class MainActivity extends Activity
         String baseDir = android.os.Environment.getExternalStorageDirectory().getAbsolutePath();
         String fileName = "CalendarData.csv";
         String filePath = baseDir + File.separator + fileName;
-        //File f = new File(filePath);
-        //String filePath = "/sdcard/myfile.csv";
         CSVWriter writer = null;
-
 
         //Convert List to Array
         String[]stringArray = new String[eventStrings.size()];
@@ -476,13 +447,91 @@ public class MainActivity extends Activity
             writer = new CSVWriter(new FileWriter(filePath), '\n');
             writer.writeNext(stringArray);
             writer.close();
-            Toast.makeText(this, "Success", Toast.LENGTH_LONG).show();
+            Toast.makeText(this, fileName + " created", Toast.LENGTH_LONG).show();
         }
         catch (IOException e){
-            Log.d("Schreibefehler", "Fehler");
+            Log.d("Couldnt write to Phone", "Error");
         }
 
     }
 
+    private void setupButtons(){
+        mCallApiButton = new Button(this);
+        mCallApiButton.setText(BUTTON_TEXT);
+        mCallApiButton.setOnClickListener(new View.OnClickListener() {
+            @Override
+            public void onClick(View v) {
+                mCallApiButton.setEnabled(false);
+                mOutputText.setText("");
+                getResultsFromApi();
+                mCallApiButton.setEnabled(true);
+            }
+        });
 
-}
+        mWriteToStorageButton = new Button(this);
+        mWriteToStorageButton.setText("WriteCSV");
+        mWriteToStorageButton.setOnClickListener(new View.OnClickListener(){
+            public void onClick(View v){
+                mWriteToStorageButton.setEnabled(false);
+                writeCSV(eventStrings);
+                mWriteToStorageButton.setEnabled(true);
+            }
+        });
+
+        mPickTimeButton = new Button(this);
+        mPickTimeButton.setText("Set Time");
+        mPickTimeButton.setOnClickListener(new View.OnClickListener(){
+            public void onClick(View v){
+                DialogFragment newFragment = new TimePickerFragment();
+                newFragment.show(getFragmentManager(), "timepicker");
+
+            }
+        });
+
+
+    }
+
+
+    private String formatString(String summary, DateTime start, DateTime end, String location) {
+        StringBuilder completeString = new StringBuilder();
+        completeString.append(summary).append(", ");
+
+        StringBuilder buildStartString = new StringBuilder();
+        String startString = start.toString();
+        buildStartString.append(startString.substring(0, 10)).append(" ").append(startString.substring(11, 19));
+        startString = buildStartString.toString();
+        completeString.append(startString).append(", ");
+
+        String endString = end.toString();
+        StringBuilder buildEndString = new StringBuilder();
+        buildEndString.append(endString.substring(0, 10)).append(" ").append(endString.substring(11, 19));
+        endString = buildEndString.toString();
+        completeString.append(endString).append(", ");
+        completeString.append(location);
+
+        String newString = completeString.toString();
+        return newString;
+
+        }
+
+    private int getDayofWeek(DateTime date){
+        String dateString = date.toString();
+
+        String year = dateString.substring(0, 4);
+        int intYear = Integer.valueOf(year);
+
+        String month = dateString.substring(5, 7);
+        int intMonth = Integer.valueOf(month);
+
+        String day = dateString.substring(8, 10);
+        int intDay = Integer.valueOf(day);
+
+        java.util.Calendar calendar = new GregorianCalendar(intYear, intMonth-1, intDay);
+        int result = calendar.get(java.util.Calendar.DAY_OF_WEEK);
+
+        return result;
+    }
+
+
+
+    }

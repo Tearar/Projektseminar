@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
-<RelativeLayout xmlns:android="http://schemas.android.com/apk/res/android"
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:tools="http://schemas.android.com/tools"
     android:id="@+id/activity_main"
     android:layout_width="match_parent"
@@ -8,23 +8,35 @@
     android:paddingLeft="@dimen/activity_horizontal_margin"
     android:paddingRight="@dimen/activity_horizontal_margin"
     android:paddingTop="@dimen/activity_vertical_margin"
+    android:orientation="vertical"
     tools:context="ur.de.projektseminar_adm.MainActivity">
 
-    <Button
-        android:text="Write CSV"
-        android:layout_width="wrap_content"
-        android:layout_height="wrap_content"
-        android:id="@+id/csvbutton"
-        android:layout_alignParentBottom="true"
-        android:layout_alignLeft="@+id/apibutton"
-        android:layout_alignStart="@+id/apibutton"
-        android:layout_marginBottom="20dp" />
 
     <Button
         android:text="Call API"
-        android:layout_width="wrap_content"
+        android:layout_width="match_parent"
         android:layout_height="wrap_content"
-        android:id="@+id/apibutton"
-        android:layout_alignParentTop="true"
-        android:layout_centerHorizontal="true" />
-</RelativeLayout>
+        android:id="@+id/mCallApiButton" />
+
+    <Button
+        android:text="Write CSV"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:id="@+id/mWriteToStorageButton" />
+
+    <Button
+        android:text="Set Time of new Event"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:id="@+id/mPickTimeButton" />
+
+    <TextView
+        android:text="TextView"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:id="@+id/mOutPutText"
+        android:paddingTop="16dp"
+        android:paddingBottom="16dp"
+        android:paddingLeft="16dp"
+        android:paddingRight="16dp"/>
+</LinearLayout>

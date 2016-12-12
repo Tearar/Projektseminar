@@ -23,9 +23,11 @@ import com.opencsv.CSVWriter;
 import android.Manifest;
 import android.accounts.AccountManager;
 import android.app.Activity;
+import android.app.DatePickerDialog;
 import android.app.Dialog;
 import android.app.DialogFragment;
 import android.app.ProgressDialog;
+import android.app.TimePickerDialog;
 import android.content.Context;
 import android.content.Intent;
 import android.content.SharedPreferences;
@@ -40,6 +42,7 @@ import android.util.Log;
 import android.view.View;
 import android.view.ViewGroup;
 import android.widget.Button;
+import android.widget.DatePicker;
 import android.widget.LinearLayout;
 import android.widget.TextView;
 import android.widget.TimePicker;
@@ -59,15 +62,16 @@ public class MainActivity extends Activity
         implements EasyPermissions.PermissionCallbacks {
     GoogleAccountCredential mCredential;
     private TextView mOutputText;
-    private Button mCallApiButton, mWriteToStorageButton, mPickTimeButton;
+    private Button mCallApiButton, mWriteToStorageButton, mPickTimeButton, mPickDateButton;
     ProgressDialog mProgress;
 
     static final int REQUEST_ACCOUNT_PICKER = 1000;
     static final int REQUEST_AUTHORIZATION = 1001;
     static final int REQUEST_GOOGLE_PLAY_SERVICES = 1002;
     static final int REQUEST_PERMISSION_GET_ACCOUNTS = 1003;
-    static final int DIALOG_ID = 0;
-    int hour, minute;
+    static final int TIME_DIALOG_ID = 0;
+    static final int DATE_DIALOG_ID = 1;
+    int yearInput, monthInput, dayInput, hourInput, minuteInput;
 
     private static final String BUTTON_TEXT = "Call Google Calendar API";
     private static final String PREF_ACCOUNT_NAME = "accountName";
@@ -84,26 +88,8 @@ public class MainActivity extends Activity
         setContentView(R.layout.activity_main);
 
         mOutputText = (TextView)findViewById(R.id.mOutPutText);
-        mCallApiButton = (Button)findViewById(R.id.mCallApiButton);
-        mCallApiButton.setOnClickListener(new View.OnClickListener() {
-            @Override
-            public void onClick(View v) {
-                mCallApiButton.setEnabled(false);
-                mOutputText.setText("");
-                getResultsFromApi();
-                mCallApiButton.setEnabled(true);
-            }
-        });
-        mWriteToStorageButton = (Button)findViewById(R.id.mWriteToStorageButton);
-        mWriteToStorageButton.setOnClickListener(new View.OnClickListener(){
-            public void onClick(View v){
-                mWriteToStorageButton.setEnabled(false);
-                writeCSV(eventStrings);
-                mWriteToStorageButton.setEnabled(true);
-            }
-        });
-        mPickTimeButton = (Button)findViewById(R.id.mPickTimeButton);
-
+        mOutputText.setText("");
+        setupButtons();
         mProgress = new ProgressDialog(this);
         mProgress.setMessage("Calling Google Calendar API ...");
 
@@ -112,6 +98,36 @@ public class MainActivity extends Activity
                 getApplicationContext(), Arrays.asList(SCOPES))
                 .setBackOff(new ExponentialBackOff());
     }
+    @Override
+    protected Dialog onCreateDialog(int id){
+        if (id == TIME_DIALOG_ID){
+            return new TimePickerDialog(MainActivity.this, kTimePickListener, hourInput, minuteInput, true);
+        }
+        if (id == DATE_DIALOG_ID){
+            return new DatePickerDialog(MainActivity.this, kDatePickListener, yearInput, monthInput, dayInput);
+        }
+        return null;
+    }
+
+    protected TimePickerDialog.OnTimeSetListener kTimePickListener = new TimePickerDialog.OnTimeSetListener() {
+        @Override
+        public void onTimeSet(TimePicker timePicker, int hourOfDay, int minute) {
+            hourInput = hourOfDay;
+            minuteInput = minute;
+            Toast.makeText(MainActivity.this, "Time: "+hourInput+" : "+minuteInput, Toast.LENGTH_LONG).show();
+        }
+    };
+
+    protected DatePickerDialog.OnDateSetListener kDatePickListener = new DatePickerDialog.OnDateSetListener() {
+        @Override
+        public void onDateSet(DatePicker datePicker, int year, int month, int day) {
+            yearInput = year;
+            monthInput = month+1;
+            dayInput = day;
+            Toast.makeText(MainActivity.this, "Date: "+dayInput+"."+monthInput+"."+yearInput, Toast.LENGTH_LONG).show();
+        }
+    };
+
 
     /**
      * Attempt to call the API, after verifying that all the preconditions are
@@ -349,19 +365,17 @@ public class MainActivity extends Activity
          * @throws IOException
          */
         private List<String> getDataFromApi() throws IOException {
-            // List the next 10 events from the primary calendar.
-            //DateTime now = new DateTime(System.currentTimeMillis());
-            DateTime date = new DateTime("2016-10-05T00:00:00-08:00");
+            //Show matching events from up to 1 year ago
+            DateTime date = createDateFromInput(yearInput, monthInput, dayInput, hourInput, minuteInput);
+            //DateTime date = new DateTime("2016-10-05T00:00:00");
             int dayOfWeek = getDayofWeek(date);
-            Log.d("Wochentag: ", String.valueOf(dayOfWeek));
 
             Events events = mService.events().list("primary")
-                    .setMaxResults(10)
+                    .setMaxResults(20)
                     .setTimeMin(date)
                     .setOrderBy("startTime")
                     .setSingleEvents(true)
                     .execute();
-
 
             List<Event> items = events.getItems();
 
@@ -379,18 +393,13 @@ public class MainActivity extends Activity
                 //Returns only the events where dayOfWeek matches
                 if(dayOfWeek == dayOfWeekEvent) {
 
-                    String formattedString = formatString(event.getSummary(), start, end, event.getLocation());
-                    eventStrings.add(formattedString);
+                    String formattedOutput = formatOutput(event.getSummary(), start, end, event.getLocation());
+                    eventStrings.add(formattedOutput);
                     //eventStrings.add(String.format("%s, %s, %s, %s", event.getSummary(), start, end, event.getLocation()));
                 }
             }
-
             return eventStrings;
-
-
-
         }
-
 
         @Override
         protected void onPreExecute() {
@@ -455,44 +464,7 @@ public class MainActivity extends Activity
 
     }
 
-    private void setupButtons(){
-        mCallApiButton = new Button(this);
-        mCallApiButton.setText(BUTTON_TEXT);
-        mCallApiButton.setOnClickListener(new View.OnClickListener() {
-            @Override
-            public void onClick(View v) {
-                mCallApiButton.setEnabled(false);
-                mOutputText.setText("");
-                getResultsFromApi();
-                mCallApiButton.setEnabled(true);
-            }
-        });
-
-        mWriteToStorageButton = new Button(this);
-        mWriteToStorageButton.setText("WriteCSV");
-        mWriteToStorageButton.setOnClickListener(new View.OnClickListener(){
-            public void onClick(View v){
-                mWriteToStorageButton.setEnabled(false);
-                writeCSV(eventStrings);
-                mWriteToStorageButton.setEnabled(true);
-            }
-        });
-
-        mPickTimeButton = new Button(this);
-        mPickTimeButton.setText("Set Time");
-        mPickTimeButton.setOnClickListener(new View.OnClickListener(){
-            public void onClick(View v){
-                DialogFragment newFragment = new TimePickerFragment();
-                newFragment.show(getFragmentManager(), "timepicker");
-
-            }
-        });
-
-
-    }
-
-
-    private String formatString(String summary, DateTime start, DateTime end, String location) {
+    private String formatOutput(String summary, DateTime start, DateTime end, String location) {
         StringBuilder completeString = new StringBuilder();
         completeString.append(summary).append(", ");
 
@@ -532,6 +504,67 @@ public class MainActivity extends Activity
         return result;
     }
 
+    private DateTime createDateFromInput(int year, int month, int day, int hour, int minute){
+        //"2016-10-05T00:00:00"
+        StringBuilder buildDate = new StringBuilder();
+        buildDate.append(year-1).append("-");
+        if (month < 10){
+            buildDate.append("0");
+        }
+        buildDate.append(month).append("-");
+        if(day <10){
+            buildDate.append("0");
+        }
+        buildDate.append(day).append("T").append(hour).append(":").append(minute).append(":00");
+        String dateString = buildDate.toString();
+        DateTime date = new DateTime(dateString);
+        return date;
+    }
 
+    private void setupButtons(){
+        mCallApiButton = (Button)findViewById(R.id.mCallApiButton);
+        mCallApiButton.setOnClickListener(new View.OnClickListener() {
+            @Override
+            public void onClick(View v) {
+                if(yearInput == 0 || monthInput == 0 || dayInput == 0 || hourInput == 0 || minuteInput == 0){
+                    Toast.makeText(MainActivity.this, "Enter Time and/or Date first", Toast.LENGTH_LONG).show();
+                }
+                else {
+                    mCallApiButton.setEnabled(false);
+                    getResultsFromApi();
+                    mCallApiButton.setEnabled(true);
+                }
+            }
+        });
+        mWriteToStorageButton = (Button)findViewById(R.id.mWriteToStorageButton);
+        mWriteToStorageButton.setOnClickListener(new View.OnClickListener(){
+            public void onClick(View v){
+                if(eventStrings.isEmpty()){
+                    Toast.makeText(MainActivity.this, "There is nothing to write", Toast.LENGTH_LONG).show();
+                }
+                else {
+                    mWriteToStorageButton.setEnabled(false);
+                    writeCSV(eventStrings);
+                    mWriteToStorageButton.setEnabled(true);
+                }
+            }
+        });
+        mPickTimeButton = (Button)findViewById(R.id.mPickTimeButton);
+        mPickTimeButton.setOnClickListener(
+                new View.OnClickListener() {
+                    @Override
+                    public void onClick(View view) {
+                        showDialog(TIME_DIALOG_ID);
+                    }
+                }
+        );
+        mPickDateButton = (Button)findViewById(R.id.mPickDateButton);
+        mPickDateButton.setOnClickListener(new View.OnClickListener() {
+            @Override
+            public void onClick(View view) {
+                showDialog(DATE_DIALOG_ID);
+            }
+        });
+    }
 
     }

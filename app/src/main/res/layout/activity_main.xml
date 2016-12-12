@@ -13,6 +13,18 @@
 
 
     <Button
+        android:text="Set Date of new Event"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:id="@+id/mPickDateButton" />
+
+    <Button
+        android:text="Set Time of new Event"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:id="@+id/mPickTimeButton" />
+
+    <Button
         android:text="Call API"
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
@@ -23,12 +35,6 @@
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
         android:id="@+id/mWriteToStorageButton" />
-
-    <Button
-        android:text="Set Time of new Event"
-        android:layout_width="match_parent"
-        android:layout_height="wrap_content"
-        android:id="@+id/mPickTimeButton" />
 
     <TextView
         android:text="TextView"

@@ -3,6 +3,7 @@ package ur.de.projektseminar_adm;
 
 import com.google.android.gms.common.ConnectionResult;
 import com.google.android.gms.common.GoogleApiAvailability;
+import com.google.android.gms.maps.model.LatLng;
 import com.google.api.client.extensions.android.http.AndroidHttp;
 import com.google.api.client.googleapis.extensions.android.gms.auth.GoogleAccountCredential;
 import com.google.api.client.googleapis.extensions.android.gms.auth.GooglePlayServicesAvailabilityIOException;
@@ -31,6 +32,8 @@ import android.app.TimePickerDialog;
 import android.content.Context;
 import android.content.Intent;
 import android.content.SharedPreferences;
+import android.location.Address;
+import android.location.Geocoder;
 import android.net.ConnectivityManager;
 import android.net.NetworkInfo;
 import android.os.AsyncTask;
@@ -125,6 +128,7 @@ public class MainActivity extends Activity
             monthInput = month+1;
             dayInput = day;
             Toast.makeText(MainActivity.this, "Date: "+dayInput+"."+monthInput+"."+yearInput, Toast.LENGTH_LONG).show();
+            showDialog(TIME_DIALOG_ID);
         }
     };
 
@@ -388,16 +392,16 @@ public class MainActivity extends Activity
                     start = event.getStart().getDate();
                 }
 
-                int dayOfWeekEvent = getDayofWeek(start);
+                //int dayOfWeekEvent = getDayofWeek(start);
 
                 //Returns only the events where dayOfWeek matches
-                if(dayOfWeek == dayOfWeekEvent) {
+                //if(dayOfWeek == dayOfWeekEvent) {
 
                     String formattedOutput = formatOutput(event.getSummary(), start, end, event.getLocation());
                     eventStrings.add(formattedOutput);
                     //eventStrings.add(String.format("%s, %s, %s, %s", event.getSummary(), start, end, event.getLocation()));
                 }
-            }
+            //}
             return eventStrings;
         }
 
@@ -441,6 +445,8 @@ public class MainActivity extends Activity
 
 
     }
+
+    //Creates a CSV file on the storage
     private void writeCSV(List<String>eventStrings){
 
         String baseDir = android.os.Environment.getExternalStorageDirectory().getAbsolutePath();
@@ -448,6 +454,11 @@ public class MainActivity extends Activity
         String filePath = baseDir + File.separator + fileName;
         CSVWriter writer = null;
 
+        File file = new File(filePath);
+        if(file.exists()){
+            Log.d("FileExists", "FileExists");
+            file.delete();
+        }
         //Convert List to Array
         String[]stringArray = new String[eventStrings.size()];
         stringArray = eventStrings.toArray(stringArray);
@@ -463,29 +474,37 @@ public class MainActivity extends Activity
         }
 
     }
-
+    //Formats the API-Output
     private String formatOutput(String summary, DateTime start, DateTime end, String location) {
         StringBuilder completeString = new StringBuilder();
         completeString.append(summary).append(", ");
+        int dayOfWeek = getDayofWeek(start);
+        completeString.append(dayOfWeek).append(", ");
 
         StringBuilder buildStartString = new StringBuilder();
         String startString = start.toString();
-        buildStartString.append(startString.substring(0, 10)).append(" ").append(startString.substring(11, 19));
+        buildStartString.append(startString.substring(11, 13)).append(".").append(startString.substring(14, 16));
         startString = buildStartString.toString();
         completeString.append(startString).append(", ");
 
         String endString = end.toString();
         StringBuilder buildEndString = new StringBuilder();
-        buildEndString.append(endString.substring(0, 10)).append(" ").append(endString.substring(11, 19));
+        buildEndString.append(endString.substring(11, 13)).append(".").append(endString.substring(14, 16));
         endString = buildEndString.toString();
         completeString.append(endString).append(", ");
-        completeString.append(location);
+        LatLng latLng = getLocationFromAddress(MainActivity.this, location);
+        if(location != null) {
+            double lat = latLng.latitude;
+            double lng = latLng.longitude;
+            completeString.append(lat).append(", ").append(lng);
+        }
 
         String newString = completeString.toString();
         return newString;
 
         }
 
+    //Returns day of week as int
     private int getDayofWeek(DateTime date){
         String dateString = date.toString();
 
@@ -504,6 +523,7 @@ public class MainActivity extends Activity
         return result;
     }
 
+    //Creates DateTime format from user-input time and date
     private DateTime createDateFromInput(int year, int month, int day, int hour, int minute){
         //"2016-10-05T00:00:00"
         StringBuilder buildDate = new StringBuilder();
@@ -515,7 +535,15 @@ public class MainActivity extends Activity
         if(day <10){
             buildDate.append("0");
         }
-        buildDate.append(day).append("T").append(hour).append(":").append(minute).append(":00");
+        buildDate.append(day).append("T");
+        if(hour < 10){
+            buildDate.append("0");
+        }
+        buildDate.append(hour).append(":");
+        if(minute < 10){
+            buildDate.append("0");
+        }
+        buildDate.append(minute).append(":00");
         String dateString = buildDate.toString();
         DateTime date = new DateTime(dateString);
         return date;
@@ -526,7 +554,7 @@ public class MainActivity extends Activity
         mCallApiButton.setOnClickListener(new View.OnClickListener() {
             @Override
             public void onClick(View v) {
-                if(yearInput == 0 || monthInput == 0 || dayInput == 0 || hourInput == 0 || minuteInput == 0){
+                if(yearInput == 0 || monthInput == 0 || dayInput == 0 /*|| hourInput == 0 || minuteInput == 0*/){
                     Toast.makeText(MainActivity.this, "Enter Time and/or Date first", Toast.LENGTH_LONG).show();
                 }
                 else {
@@ -550,8 +578,7 @@ public class MainActivity extends Activity
             }
         });
         mPickTimeButton = (Button)findViewById(R.id.mPickTimeButton);
-        mPickTimeButton.setOnClickListener(
-                new View.OnClickListener() {
+        mPickTimeButton.setOnClickListener(new View.OnClickListener() {
                     @Override
                     public void onClick(View view) {
                         showDialog(TIME_DIALOG_ID);
@@ -565,6 +592,32 @@ public class MainActivity extends Activity
                 showDialog(DATE_DIALOG_ID);
             }
         });
+    }
+
+    //Returns a LatLng Object (coordinates) from a certain adress
+    private LatLng getLocationFromAddress(Context context, String place){
+
+        Geocoder coder = new Geocoder(context);
+        List<Address> address;
+        LatLng p1 = null;
+
+        try {
+            address = coder.getFromLocationName(place, 5);
+            if (address == null) {
+                return null;
+            }
+            Address location = address.get(0);
+            location.getLatitude();
+            location.getLongitude();
+
+            p1 = new LatLng(location.getLatitude(), location.getLongitude() );
+
+        } catch (Exception ex) {
+
+            ex.printStackTrace();
+        }
+
+        return p1;
     }
 
     }

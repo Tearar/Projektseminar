@@ -14,7 +14,6 @@ import com.google.api.client.json.JsonFactory;
 import com.google.api.client.json.jackson2.JacksonFactory;
 import com.google.api.client.util.ExponentialBackOff;
 
-import com.google.api.services.calendar.Calendar;
 import com.google.api.services.calendar.CalendarScopes;
 import com.google.api.client.util.DateTime;
 
@@ -26,7 +25,6 @@ import android.accounts.AccountManager;
 import android.app.Activity;
 import android.app.DatePickerDialog;
 import android.app.Dialog;
-import android.app.DialogFragment;
 import android.app.ProgressDialog;
 import android.app.TimePickerDialog;
 import android.content.Context;
@@ -43,15 +41,11 @@ import android.text.TextUtils;
 import android.text.method.ScrollingMovementMethod;
 import android.util.Log;
 import android.view.View;
-import android.view.ViewGroup;
 import android.widget.Button;
 import android.widget.DatePicker;
-import android.widget.LinearLayout;
 import android.widget.TextView;
 import android.widget.TimePicker;
 import android.widget.Toast;
-
-import org.w3c.dom.Text;
 
 import java.io.File;
 import java.io.FileWriter;
@@ -65,16 +59,17 @@ public class MainActivity extends Activity
         implements EasyPermissions.PermissionCallbacks {
     GoogleAccountCredential mCredential;
     private TextView mOutputText;
-    private Button mCallApiButton, mWriteToStorageButton, mPickTimeButton, mPickDateButton;
+    private Button mCallApiButton, mWriteToStorageButton, mPickEndTimeButton, mPickDateAndStartTimeButton;
     ProgressDialog mProgress;
 
     static final int REQUEST_ACCOUNT_PICKER = 1000;
     static final int REQUEST_AUTHORIZATION = 1001;
     static final int REQUEST_GOOGLE_PLAY_SERVICES = 1002;
     static final int REQUEST_PERMISSION_GET_ACCOUNTS = 1003;
-    static final int TIME_DIALOG_ID = 0;
+    static final int START_TIME_DIALOG_ID = 0;
+    static final int END_TIME_DIALOG_ID = 2;
     static final int DATE_DIALOG_ID = 1;
-    int yearInput, monthInput, dayInput, hourInput, minuteInput;
+    int yearInput, monthInput, dayInput, startHourInput, startMinuteInput, endHourInput, endMinuteInput;
 
     private static final String PREF_ACCOUNT_NAME = "accountName";
     private static final String[] SCOPES = { CalendarScopes.CALENDAR_READONLY };
@@ -103,23 +98,17 @@ public class MainActivity extends Activity
     }
     @Override
     protected Dialog onCreateDialog(int id){
-        if (id == TIME_DIALOG_ID){
-            return new TimePickerDialog(MainActivity.this, kTimePickListener, hourInput, minuteInput, true);
+        if (id == START_TIME_DIALOG_ID){
+            return new TimePickerDialog(MainActivity.this, kStartTimePickListener, startHourInput, startMinuteInput, true);
         }
         if (id == DATE_DIALOG_ID){
             return new DatePickerDialog(MainActivity.this, kDatePickListener, yearInput, monthInput, dayInput);
         }
+        if (id == END_TIME_DIALOG_ID){
+            return new TimePickerDialog(MainActivity.this, kEndTimePickListener, endHourInput, endMinuteInput, true);
+        }
         return null;
     }
-
-    protected TimePickerDialog.OnTimeSetListener kTimePickListener = new TimePickerDialog.OnTimeSetListener() {
-        @Override
-        public void onTimeSet(TimePicker timePicker, int hourOfDay, int minute) {
-            hourInput = hourOfDay;
-            minuteInput = minute;
-            Toast.makeText(MainActivity.this, "Time: "+hourInput+":"+minuteInput, Toast.LENGTH_LONG).show();
-        }
-    };
 
     protected DatePickerDialog.OnDateSetListener kDatePickListener = new DatePickerDialog.OnDateSetListener() {
         @Override
@@ -128,9 +117,28 @@ public class MainActivity extends Activity
             monthInput = month+1;
             dayInput = day;
             Toast.makeText(MainActivity.this, "Date: "+dayInput+"."+monthInput+"."+yearInput, Toast.LENGTH_LONG).show();
-            showDialog(TIME_DIALOG_ID);
+            showDialog(START_TIME_DIALOG_ID);
         }
     };
+
+    protected TimePickerDialog.OnTimeSetListener kStartTimePickListener = new TimePickerDialog.OnTimeSetListener() {
+        @Override
+        public void onTimeSet(TimePicker timePicker, int hourOfDay, int minute) {
+            startHourInput = hourOfDay;
+            startMinuteInput = minute;
+            Toast.makeText(MainActivity.this, "Starting Time: "+ startHourInput +":"+ startMinuteInput, Toast.LENGTH_LONG).show();
+        }
+    };
+
+    protected TimePickerDialog.OnTimeSetListener kEndTimePickListener = new TimePickerDialog.OnTimeSetListener() {
+        @Override
+        public void onTimeSet(TimePicker timePicker, int hourOfDay, int minute) {
+            endHourInput = hourOfDay;
+            endMinuteInput = minute;
+            Toast.makeText(MainActivity.this, "Ending Time: "+endHourInput+":"+endMinuteInput, Toast.LENGTH_LONG).show();
+        }
+    };
+
 
 
     /**
@@ -370,9 +378,9 @@ public class MainActivity extends Activity
          */
         private List<String> getDataFromApi() throws IOException {
             //Show matching events from up to 1 year agoo
-            DateTime date = createDateFromInput(yearInput, monthInput, dayInput, hourInput, minuteInput);
+            DateTime date = createDateFromInput(yearInput, monthInput, dayInput, startHourInput, startMinuteInput);
             //DateTime date = new DateTime("2016-10-05T00:00:00");
-            //int dayOfWeek = getDayofWeek(date);
+            //int dayOfWeek = getDayOfWeek(date);
 
             Events events = mService.events().list("primary")
                     .setMaxResults(500)
@@ -388,8 +396,7 @@ public class MainActivity extends Activity
                 DateTime start = event.getStart().getDateTime();
                 DateTime end = event.getEnd().getDateTime();
                 if (start == null) {
-                    // All-day events don't have start times, so just use
-                    // the start date.
+                    // All-day events don't have start times, so just use the start date.
                     start = event.getStart().getDate();
                 }
 
@@ -400,7 +407,6 @@ public class MainActivity extends Activity
 
                     String formattedOutput = formatOutput(event.getSummary(), start, end, event.getLocation());
                     eventStrings.add(formattedOutput);
-                    //eventStrings.add(String.format("%s, %s, %s, %s", event.getSummary(), start, end, event.getLocation()));
                 }
             //}
             return eventStrings;
@@ -531,7 +537,7 @@ public class MainActivity extends Activity
         return dayOfWeek;
     }
 
-    //Returns week of year as int
+    //Returns 0 if week is even, 1 if week is uneven
     private int getWeekOfYear(DateTime date){
         String dateString = date.toString();
 
@@ -546,6 +552,12 @@ public class MainActivity extends Activity
 
         java.util.Calendar calendar = new GregorianCalendar(intYear, intMonth-1, intDay);
         int weekOfYear = calendar.get(java.util.Calendar.WEEK_OF_YEAR);
+        switch (weekOfYear%2){
+            case 0: weekOfYear = 0;
+                break;
+            case 1: weekOfYear = 1;
+        }
+
         return weekOfYear;
     }
 
@@ -589,16 +601,16 @@ public class MainActivity extends Activity
                 }
             }
         });
-        mPickTimeButton = (Button)findViewById(R.id.mPickTimeButton);
-        mPickTimeButton.setOnClickListener(new View.OnClickListener() {
+        mPickEndTimeButton = (Button)findViewById(R.id.mPickEndTimeButton);
+        mPickEndTimeButton.setOnClickListener(new View.OnClickListener() {
                     @Override
                     public void onClick(View view) {
-                        showDialog(TIME_DIALOG_ID);
+                        showDialog(END_TIME_DIALOG_ID);
                     }
                 }
         );
-        mPickDateButton = (Button)findViewById(R.id.mPickDateButton);
-        mPickDateButton.setOnClickListener(new View.OnClickListener() {
+        mPickDateAndStartTimeButton = (Button)findViewById(R.id.mPickDateAndStartTimeButton);
+        mPickDateAndStartTimeButton.setOnClickListener(new View.OnClickListener() {
             @Override
             public void onClick(View view) {
                 showDialog(DATE_DIALOG_ID);
@@ -611,7 +623,7 @@ public class MainActivity extends Activity
 
         Geocoder coder = new Geocoder(context);
         List<Address> address;
-        LatLng p1 = null;
+        LatLng latLng = null;
 
         try {
             address = coder.getFromLocationName(place, 5);
@@ -622,14 +634,14 @@ public class MainActivity extends Activity
             location.getLatitude();
             location.getLongitude();
 
-            p1 = new LatLng(location.getLatitude(), location.getLongitude() );
+            latLng = new LatLng(location.getLatitude(), location.getLongitude() );
 
         } catch (Exception ex) {
 
             ex.printStackTrace();
         }
 
-        return p1;
+        return latLng;
     }
 
     }

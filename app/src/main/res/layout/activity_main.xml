@@ -13,16 +13,16 @@
 
 
     <Button
-        android:text="Set Date of new Event"
+        android:text="Set date and start time of new Event"
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
-        android:id="@+id/mPickDateButton" />
+        android:id="@+id/mPickDateAndStartTimeButton" />
 
     <Button
-        android:text="Set Time of new Event"
+        android:text="Set end time of new Event"
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
-        android:id="@+id/mPickTimeButton" />
+        android:id="@+id/mPickEndTimeButton" />
 
     <Button
         android:text="Call API"

@@ -44,5 +44,7 @@
         android:paddingTop="16dp"
         android:paddingBottom="16dp"
         android:paddingLeft="16dp"
-        android:paddingRight="16dp"/>
+        android:paddingRight="16dp"
+        android:maxLines = "200"
+        android:scrollbars = "vertical"/>
 </LinearLayout>

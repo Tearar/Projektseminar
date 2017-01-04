@@ -76,7 +76,6 @@ public class MainActivity extends Activity
     static final int DATE_DIALOG_ID = 1;
     int yearInput, monthInput, dayInput, hourInput, minuteInput;
 
-    private static final String BUTTON_TEXT = "Call Google Calendar API";
     private static final String PREF_ACCOUNT_NAME = "accountName";
     private static final String[] SCOPES = { CalendarScopes.CALENDAR_READONLY };
     private List<String> eventStrings = new ArrayList<String>();
@@ -91,6 +90,7 @@ public class MainActivity extends Activity
         setContentView(R.layout.activity_main);
 
         mOutputText = (TextView)findViewById(R.id.mOutPutText);
+        mOutputText.setMovementMethod(new ScrollingMovementMethod());
         mOutputText.setText("");
         setupButtons();
         mProgress = new ProgressDialog(this);
@@ -117,7 +117,7 @@ public class MainActivity extends Activity
         public void onTimeSet(TimePicker timePicker, int hourOfDay, int minute) {
             hourInput = hourOfDay;
             minuteInput = minute;
-            Toast.makeText(MainActivity.this, "Time: "+hourInput+" : "+minuteInput, Toast.LENGTH_LONG).show();
+            Toast.makeText(MainActivity.this, "Time: "+hourInput+":"+minuteInput, Toast.LENGTH_LONG).show();
         }
     };
 
@@ -369,16 +369,17 @@ public class MainActivity extends Activity
          * @throws IOException
          */
         private List<String> getDataFromApi() throws IOException {
-            //Show matching events from up to 1 year ago
+            //Show matching events from up to 1 year agoo
             DateTime date = createDateFromInput(yearInput, monthInput, dayInput, hourInput, minuteInput);
             //DateTime date = new DateTime("2016-10-05T00:00:00");
-            int dayOfWeek = getDayofWeek(date);
+            //int dayOfWeek = getDayofWeek(date);
 
             Events events = mService.events().list("primary")
-                    .setMaxResults(20)
+                    .setMaxResults(500)
                     .setTimeMin(date)
                     .setOrderBy("startTime")
                     .setSingleEvents(true)
+                    .setShowDeleted(false)
                     .execute();
 
             List<Event> items = events.getItems();
@@ -417,7 +418,7 @@ public class MainActivity extends Activity
             if (output == null || output.size() == 0) {
                 mOutputText.setText("No results returned.");
             } else {
-                //output.add(0, "Data retrieved using the Google Calendar API:");
+                output.add(0, "ident, dayOfWeek, weekOfYear, startingTime, endingTime, lat, long");
                 mOutputText.setText(TextUtils.join("\n", output));
             }
         }
@@ -456,7 +457,6 @@ public class MainActivity extends Activity
 
         File file = new File(filePath);
         if(file.exists()){
-            Log.d("FileExists", "FileExists");
             file.delete();
         }
         //Convert List to Array
@@ -474,12 +474,15 @@ public class MainActivity extends Activity
         }
 
     }
+
     //Formats the API-Output
     private String formatOutput(String summary, DateTime start, DateTime end, String location) {
         StringBuilder completeString = new StringBuilder();
         completeString.append(summary).append(", ");
         int dayOfWeek = getDayofWeek(start);
         completeString.append(dayOfWeek).append(", ");
+        int weekOfYear = getWeekOfYear(start);
+        completeString.append(weekOfYear).append(", ");
 
         StringBuilder buildStartString = new StringBuilder();
         String startString = start.toString();
@@ -518,35 +521,41 @@ public class MainActivity extends Activity
         int intDay = Integer.valueOf(day);
 
         java.util.Calendar calendar = new GregorianCalendar(intYear, intMonth-1, intDay);
-        int result = calendar.get(java.util.Calendar.DAY_OF_WEEK);
+        int dayOfWeek = calendar.get(java.util.Calendar.DAY_OF_WEEK);
+        if(dayOfWeek == 1){
+            dayOfWeek = 6;
+        }
+        else {
+            dayOfWeek = dayOfWeek - 2;
+        }
+        return dayOfWeek;
+    }
 
-        return result;
+    //Returns week of year as int
+    private int getWeekOfYear(DateTime date){
+        String dateString = date.toString();
+
+        String year = dateString.substring(0, 4);
+        int intYear = Integer.valueOf(year);
+
+        String month = dateString.substring(5, 7);
+        int intMonth = Integer.valueOf(month);
+
+        String day = dateString.substring(8, 10);
+        int intDay = Integer.valueOf(day);
+
+        java.util.Calendar calendar = new GregorianCalendar(intYear, intMonth-1, intDay);
+        int weekOfYear = calendar.get(java.util.Calendar.WEEK_OF_YEAR);
+        return weekOfYear;
     }
 
     //Creates DateTime format from user-input time and date
     private DateTime createDateFromInput(int year, int month, int day, int hour, int minute){
-        //"2016-10-05T00:00:00"
-        StringBuilder buildDate = new StringBuilder();
-        buildDate.append(year-1).append("-");
-        if (month < 10){
-            buildDate.append("0");
-        }
-        buildDate.append(month).append("-");
-        if(day <10){
-            buildDate.append("0");
-        }
-        buildDate.append(day).append("T");
-        if(hour < 10){
-            buildDate.append("0");
-        }
-        buildDate.append(hour).append(":");
-        if(minute < 10){
-            buildDate.append("0");
-        }
-        buildDate.append(minute).append(":00");
-        String dateString = buildDate.toString();
-        DateTime date = new DateTime(dateString);
-        return date;
+
+        Date date = new GregorianCalendar(year-1, month-1, day, hour, minute).getTime();
+        DateTime dateTime = new DateTime(date, TimeZone.getDefault());
+
+        return dateTime;
     }
 
     private void setupButtons(){
@@ -554,8 +563,11 @@ public class MainActivity extends Activity
         mCallApiButton.setOnClickListener(new View.OnClickListener() {
             @Override
             public void onClick(View v) {
-                if(yearInput == 0 || monthInput == 0 || dayInput == 0 /*|| hourInput == 0 || minuteInput == 0*/){
+                if(yearInput == 0 || monthInput == 0 || dayInput == 0 ){
                     Toast.makeText(MainActivity.this, "Enter Time and/or Date first", Toast.LENGTH_LONG).show();
+                }
+                if(yearInput < 1000){
+                    Toast.makeText(MainActivity.this, "Enter a valid year(>1000)", Toast.LENGTH_LONG).show();
                 }
                 else {
                     mCallApiButton.setEnabled(false);
@@ -594,7 +606,7 @@ public class MainActivity extends Activity
         });
     }
 
-    //Returns a LatLng Object (coordinates) from a certain adress
+    //Returns a LatLng Object (coordinates) from a given adress
     private LatLng getLocationFromAddress(Context context, String place){
 
         Geocoder coder = new Geocoder(context);

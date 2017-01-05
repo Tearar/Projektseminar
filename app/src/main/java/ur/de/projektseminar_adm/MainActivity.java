@@ -470,7 +470,7 @@ public class MainActivity extends Activity
         stringArray = eventStrings.toArray(stringArray);
 
         try{
-            writer = new CSVWriter(new FileWriter(filePath), '\n');
+            writer = new CSVWriter(new FileWriter(filePath), '\n', CSVWriter.NO_QUOTE_CHARACTER);
             writer.writeNext(stringArray);
             writer.close();
             Toast.makeText(this, fileName + " created", Toast.LENGTH_LONG).show();

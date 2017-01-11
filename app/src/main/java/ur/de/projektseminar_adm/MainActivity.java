@@ -14,6 +14,7 @@ import com.google.api.client.json.JsonFactory;
 import com.google.api.client.json.jackson2.JacksonFactory;
 import com.google.api.client.util.ExponentialBackOff;
 
+import com.google.api.services.calendar.Calendar;
 import com.google.api.services.calendar.CalendarScopes;
 import com.google.api.client.util.DateTime;
 
@@ -98,16 +99,26 @@ public class MainActivity extends Activity
     }
     @Override
     protected Dialog onCreateDialog(int id){
-        if (id == START_TIME_DIALOG_ID){
-            return new TimePickerDialog(MainActivity.this, kStartTimePickListener, startHourInput, startMinuteInput, true);
+
+        java.util.Calendar c = java.util.Calendar.getInstance();
+
+        switch (id){
+            case START_TIME_DIALOG_ID:
+                startHourInput = c.get(java.util.Calendar.HOUR_OF_DAY);
+                startMinuteInput = c.get(java.util.Calendar.MINUTE);
+                return new TimePickerDialog(MainActivity.this, kStartTimePickListener, startHourInput, startMinuteInput, true);
+            case DATE_DIALOG_ID:
+                yearInput = c.get(java.util.Calendar.YEAR);
+                monthInput = c.get(java.util.Calendar.MONTH);
+                dayInput = c.get(java.util.Calendar.DAY_OF_MONTH);
+                return new DatePickerDialog(MainActivity.this, kDatePickListener, yearInput, monthInput, dayInput);
+            case END_TIME_DIALOG_ID:
+                endHourInput = c.get(java.util.Calendar.HOUR_OF_DAY);
+                endMinuteInput = c.get(java.util.Calendar.MINUTE);
+                return new TimePickerDialog(MainActivity.this, kEndTimePickListener, endHourInput, endMinuteInput, true);
+            default: return null;
         }
-        if (id == DATE_DIALOG_ID){
-            return new DatePickerDialog(MainActivity.this, kDatePickListener, yearInput, monthInput, dayInput);
-        }
-        if (id == END_TIME_DIALOG_ID){
-            return new TimePickerDialog(MainActivity.this, kEndTimePickListener, endHourInput, endMinuteInput, true);
-        }
-        return null;
+
     }
 
     protected DatePickerDialog.OnDateSetListener kDatePickListener = new DatePickerDialog.OnDateSetListener() {
@@ -135,7 +146,7 @@ public class MainActivity extends Activity
         public void onTimeSet(TimePicker timePicker, int hourOfDay, int minute) {
             endHourInput = hourOfDay;
             endMinuteInput = minute;
-            Toast.makeText(MainActivity.this, "Ending Time: "+endHourInput+":"+endMinuteInput, Toast.LENGTH_LONG).show();
+            Toast.makeText(MainActivity.this, "Ending Time: " + endHourInput + ":" + endMinuteInput, Toast.LENGTH_LONG).show();
         }
     };
 

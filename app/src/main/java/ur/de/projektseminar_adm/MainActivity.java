@@ -1,6 +1,5 @@
 package ur.de.projektseminar_adm;
 
-
 import com.google.android.gms.common.ConnectionResult;
 import com.google.android.gms.common.GoogleApiAvailability;
 import com.google.android.gms.maps.model.LatLng;
@@ -37,6 +36,7 @@ import android.net.ConnectivityManager;
 import android.net.NetworkInfo;
 import android.os.AsyncTask;
 import android.os.Bundle;
+import android.os.Environment;
 import android.support.annotation.NonNull;
 import android.text.TextUtils;
 import android.text.method.ScrollingMovementMethod;
@@ -73,11 +73,12 @@ public class MainActivity extends Activity
     int yearInput, monthInput, dayInput, startHourInput, startMinuteInput, endHourInput, endMinuteInput;
 
     private static final String PREF_ACCOUNT_NAME = "accountName";
-    private static final String[] SCOPES = { CalendarScopes.CALENDAR_READONLY };
+    private static final String[] SCOPES = {CalendarScopes.CALENDAR};
     private List<String> eventStrings = new ArrayList<String>();
 
     /**
      * Create the main activity.
+     *
      * @param savedInstanceState previously saved instance data.
      */
     @Override
@@ -85,7 +86,7 @@ public class MainActivity extends Activity
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_main);
 
-        mOutputText = (TextView)findViewById(R.id.mOutPutText);
+        mOutputText = (TextView) findViewById(R.id.mOutPutText);
         mOutputText.setMovementMethod(new ScrollingMovementMethod());
         mOutputText.setText("");
         setupButtons();
@@ -96,13 +97,13 @@ public class MainActivity extends Activity
         mCredential = GoogleAccountCredential.usingOAuth2(
                 getApplicationContext(), Arrays.asList(SCOPES))
                 .setBackOff(new ExponentialBackOff());
-    }
+        }
+
     @Override
-    protected Dialog onCreateDialog(int id){
+    protected Dialog onCreateDialog(int id) {
 
         java.util.Calendar c = java.util.Calendar.getInstance();
-
-        switch (id){
+        switch (id) {
             case START_TIME_DIALOG_ID:
                 startHourInput = c.get(java.util.Calendar.HOUR_OF_DAY);
                 startMinuteInput = c.get(java.util.Calendar.MINUTE);
@@ -116,7 +117,8 @@ public class MainActivity extends Activity
                 endHourInput = c.get(java.util.Calendar.HOUR_OF_DAY);
                 endMinuteInput = c.get(java.util.Calendar.MINUTE);
                 return new TimePickerDialog(MainActivity.this, kEndTimePickListener, endHourInput, endMinuteInput, true);
-            default: return null;
+            default:
+                return null;
         }
 
     }
@@ -125,9 +127,9 @@ public class MainActivity extends Activity
         @Override
         public void onDateSet(DatePicker datePicker, int year, int month, int day) {
             yearInput = year;
-            monthInput = month+1;
+            monthInput = month + 1;
             dayInput = day;
-            Toast.makeText(MainActivity.this, "Date: "+dayInput+"."+monthInput+"."+yearInput, Toast.LENGTH_LONG).show();
+            Toast.makeText(MainActivity.this, "Date: " + dayInput + "." + monthInput + "." + yearInput, Toast.LENGTH_LONG).show();
             showDialog(START_TIME_DIALOG_ID);
         }
     };
@@ -137,7 +139,7 @@ public class MainActivity extends Activity
         public void onTimeSet(TimePicker timePicker, int hourOfDay, int minute) {
             startHourInput = hourOfDay;
             startMinuteInput = minute;
-            Toast.makeText(MainActivity.this, "Starting Time: "+ startHourInput +":"+ startMinuteInput, Toast.LENGTH_LONG).show();
+            Toast.makeText(MainActivity.this, "Starting Time: " + startHourInput + ":" + startMinuteInput, Toast.LENGTH_LONG).show();
         }
     };
 
@@ -147,10 +149,9 @@ public class MainActivity extends Activity
             endHourInput = hourOfDay;
             endMinuteInput = minute;
             Toast.makeText(MainActivity.this, "Ending Time: " + endHourInput + ":" + endMinuteInput, Toast.LENGTH_LONG).show();
+            insertEventThroughApi();
         }
     };
-
-
 
     /**
      * Attempt to call the API, after verifying that all the preconditions are
@@ -160,15 +161,28 @@ public class MainActivity extends Activity
      * appropriate.
      */
     private void getResultsFromApi() {
-        if (! isGooglePlayServicesAvailable()) {
+        if (!isGooglePlayServicesAvailable()) {
             acquireGooglePlayServices();
         } else if (mCredential.getSelectedAccountName() == null) {
             chooseAccount();
-        } else if (! isDeviceOnline()) {
+        } else if (!isDeviceOnline()) {
             mOutputText.setText("No network connection available.");
         } else {
             new MakeRequestTask(mCredential).execute();
         }
+    }
+
+    private void insertEventThroughApi(){
+        if (!isGooglePlayServicesAvailable()) {
+            acquireGooglePlayServices();
+        } else if (mCredential.getSelectedAccountName() == null) {
+            chooseAccount();
+        } else if (!isDeviceOnline()) {
+            mOutputText.setText("No network connection available.");
+        } else {
+            new MakeInsertTask(mCredential).execute();
+        }
+
     }
 
     /**
@@ -189,7 +203,8 @@ public class MainActivity extends Activity
                     .getString(PREF_ACCOUNT_NAME, null);
             if (accountName != null) {
                 mCredential.setSelectedAccountName(accountName);
-                getResultsFromApi();
+                //getResultsFromApi();
+                insertEventThroughApi();
             } else {
                 // Start a dialog from which the user can choose an account
                 startActivityForResult(
@@ -210,17 +225,18 @@ public class MainActivity extends Activity
      * Called when an activity launched here (specifically, AccountPicker
      * and authorization) exits, giving you the requestCode you started it with,
      * the resultCode it returned, and any additional data from it.
+     *
      * @param requestCode code indicating which activity result is incoming.
-     * @param resultCode code indicating the result of the incoming
-     *     activity result.
-     * @param data Intent (containing result data) returned by incoming
-     *     activity result.
+     * @param resultCode  code indicating the result of the incoming
+     *                    activity result.
+     * @param data        Intent (containing result data) returned by incoming
+     *                    activity result.
      */
     @Override
     protected void onActivityResult(
             int requestCode, int resultCode, Intent data) {
         super.onActivityResult(requestCode, resultCode, data);
-        switch(requestCode) {
+        switch (requestCode) {
             case REQUEST_GOOGLE_PLAY_SERVICES:
                 if (resultCode != RESULT_OK) {
                     mOutputText.setText(
@@ -256,27 +272,26 @@ public class MainActivity extends Activity
 
     /**
      * Respond to requests for permissions at runtime for API 23 and above.
-     * @param requestCode The request code passed in
-     *     requestPermissions(android.app.Activity, String, int, String[])
-     * @param permissions The requested permissions. Never null.
+     *
+     * @param requestCode  The request code passed in
+     *                     requestPermissions(android.app.Activity, String, int, String[])
+     * @param permissions  The requested permissions. Never null.
      * @param grantResults The grant results for the corresponding permissions
-     *     which is either PERMISSION_GRANTED or PERMISSION_DENIED. Never null.
+     *                     which is either PERMISSION_GRANTED or PERMISSION_DENIED. Never null.
      */
     @Override
-    public void onRequestPermissionsResult(int requestCode,
-                                           @NonNull String[] permissions,
-                                           @NonNull int[] grantResults) {
+    public void onRequestPermissionsResult(int requestCode, @NonNull String[] permissions, @NonNull int[] grantResults) {
         super.onRequestPermissionsResult(requestCode, permissions, grantResults);
-        EasyPermissions.onRequestPermissionsResult(
-                requestCode, permissions, grantResults, this);
+        EasyPermissions.onRequestPermissionsResult(requestCode, permissions, grantResults, this);
     }
 
     /**
      * Callback for when a permission is granted using the EasyPermissions
      * library.
+     *
      * @param requestCode The request code associated with the requested
-     *         permission
-     * @param list The requested permission list. Never null.
+     *                    permission
+     * @param list        The requested permission list. Never null.
      */
     @Override
     public void onPermissionsGranted(int requestCode, List<String> list) {
@@ -286,9 +301,10 @@ public class MainActivity extends Activity
     /**
      * Callback for when a permission is denied using the EasyPermissions
      * library.
+     *
      * @param requestCode The request code associated with the requested
-     *         permission
-     * @param list The requested permission list. Never null.
+     *                    permission
+     * @param list        The requested permission list. Never null.
      */
     @Override
     public void onPermissionsDenied(int requestCode, List<String> list) {
@@ -297,25 +313,25 @@ public class MainActivity extends Activity
 
     /**
      * Checks whether the device currently has a network connection.
+     *
      * @return true if the device has a network connection, false otherwise.
      */
     private boolean isDeviceOnline() {
-        ConnectivityManager connMgr =
-                (ConnectivityManager) getSystemService(Context.CONNECTIVITY_SERVICE);
+        ConnectivityManager connMgr = (ConnectivityManager) getSystemService(Context.CONNECTIVITY_SERVICE);
         NetworkInfo networkInfo = connMgr.getActiveNetworkInfo();
         return (networkInfo != null && networkInfo.isConnected());
     }
 
     /**
      * Check that Google Play services APK is installed and up to date.
+     *
      * @return true if Google Play Services is available and up to
-     *     date on this device; false otherwise.
+     * date on this device; false otherwise.
      */
     private boolean isGooglePlayServicesAvailable() {
-        GoogleApiAvailability apiAvailability =
-                GoogleApiAvailability.getInstance();
-        final int connectionStatusCode =
-                apiAvailability.isGooglePlayServicesAvailable(this);
+        GoogleApiAvailability apiAvailability = GoogleApiAvailability.getInstance();
+        final int connectionStatusCode = apiAvailability.isGooglePlayServicesAvailable(this);
+
         return connectionStatusCode == ConnectionResult.SUCCESS;
     }
 
@@ -324,21 +340,19 @@ public class MainActivity extends Activity
      * Play Services installation via a user dialog, if possible.
      */
     private void acquireGooglePlayServices() {
-        GoogleApiAvailability apiAvailability =
-                GoogleApiAvailability.getInstance();
-        final int connectionStatusCode =
-                apiAvailability.isGooglePlayServicesAvailable(this);
+        GoogleApiAvailability apiAvailability = GoogleApiAvailability.getInstance();
+        final int connectionStatusCode = apiAvailability.isGooglePlayServicesAvailable(this);
         if (apiAvailability.isUserResolvableError(connectionStatusCode)) {
             showGooglePlayServicesAvailabilityErrorDialog(connectionStatusCode);
         }
     }
 
-
     /**
      * Display an error dialog showing that Google Play Services is missing
      * or out of date.
+     *
      * @param connectionStatusCode code describing the presence (or lack of)
-     *     Google Play Services on this device.
+     *                             Google Play Services on this device.
      */
     void showGooglePlayServicesAvailabilityErrorDialog(
             final int connectionStatusCode) {
@@ -350,25 +364,87 @@ public class MainActivity extends Activity
         dialog.show();
     }
 
+    private class MakeInsertTask extends AsyncTask<Void, Void, String> {
+        private Calendar mService = null;
+        private Exception mLastError = null;
+
+        public MakeInsertTask(GoogleAccountCredential credential){
+            HttpTransport transport = AndroidHttp.newCompatibleTransport();
+            JsonFactory jsonFactory = JacksonFactory.getDefaultInstance();
+            mService = new Calendar.Builder(transport, jsonFactory, credential).setApplicationName("Calendar Test").build();
+        }
+
+        @Override
+        protected String doInBackground(Void... params){
+
+            try {
+                addNewEventToCalendar();
+            }
+            catch (Exception e){
+                mLastError = e;
+                cancel(true);
+                return null;
+            }
+            return "Executed";
+        }
+
+        private void addNewEventToCalendar() throws IOException {
+            DateTime start = createDateFromInput(yearInput, monthInput, dayInput, startHourInput, startMinuteInput);
+            EventDateTime eventStart = new EventDateTime().setDateTime(start).setTimeZone("Europe/Berlin");
+            DateTime end = createDateFromInput(yearInput, monthInput, dayInput, endHourInput, endMinuteInput);
+            EventDateTime eventEnd = new EventDateTime().setDateTime(end).setTimeZone("Europe/Berlin");
+            Event event = new Event()
+                    .setSummary("Test")
+                    .setLocation("Regensburg")
+                    .setDescription("TestBeschreibung")
+                    .setStart(eventStart)
+                    .setEnd(eventEnd);
+            String calendarId = "primary";
+
+            event = mService.events().insert(calendarId, event).execute();
+        }
+
+        @Override
+        protected void onCancelled() {
+            if (mLastError != null) {
+                if (mLastError instanceof GooglePlayServicesAvailabilityIOException) {
+                    showGooglePlayServicesAvailabilityErrorDialog(
+                            ((GooglePlayServicesAvailabilityIOException) mLastError)
+                                    .getConnectionStatusCode());
+                } else if (mLastError instanceof UserRecoverableAuthIOException) {
+                    startActivityForResult(
+                            ((UserRecoverableAuthIOException) mLastError).getIntent(), MainActivity.REQUEST_AUTHORIZATION);
+                } else {
+                    mOutputText.setText("The following error occurred:\n"
+                            + mLastError.getMessage());
+                }
+            } else {
+                mOutputText.setText("Request cancelled.");
+            }
+        }
+
+    }
+
     /**
      * An asynchronous task that handles the Google Calendar API call.
      * Placing the API calls in their own task ensures the UI stays responsive.
      */
     private class MakeRequestTask extends AsyncTask<Void, Void, List<String>> {
-        private com.google.api.services.calendar.Calendar mService = null;
+        private Calendar mService = null;
         private Exception mLastError = null;
 
         public MakeRequestTask(GoogleAccountCredential credential) {
             HttpTransport transport = AndroidHttp.newCompatibleTransport();
             JsonFactory jsonFactory = JacksonFactory.getDefaultInstance();
-            mService = new com.google.api.services.calendar.Calendar.Builder(
+            mService = new Calendar.Builder(
                     transport, jsonFactory, credential)
-                    .setApplicationName("Google Calendar API Android Quickstart")
+                    .setApplicationName("Calendar Test")
                     .build();
         }
 
         /**
          * Background task to call Google Calendar API.
+         *
          * @param params no parameters needed for this task.
          */
         @Override
@@ -383,7 +459,8 @@ public class MainActivity extends Activity
         }
 
         /**
-         * Fetch a list of the next 10 events from the primary calendar.
+         * Fetch a list of the next 500 events from the primary calendar.
+         *
          * @return List of Strings describing returned events.
          * @throws IOException
          */
@@ -416,9 +493,9 @@ public class MainActivity extends Activity
                 //Returns only the events where dayOfWeek matches
                 //if(dayOfWeek == dayOfWeekEvent) {
 
-                    String formattedOutput = formatOutput(event.getSummary(), start, end, event.getLocation());
-                    eventStrings.add(formattedOutput);
-                }
+                String formattedOutput = formatOutput(event.getSummary(), start, end, event.getLocation());
+                eventStrings.add(formattedOutput);
+            }
             //}
             return eventStrings;
         }
@@ -465,28 +542,27 @@ public class MainActivity extends Activity
     }
 
     //Creates a CSV file on the storage
-    private void writeCSV(List<String>eventStrings){
+    private void writeCSV(List<String> eventStrings) {
 
-        String baseDir = android.os.Environment.getExternalStorageDirectory().getAbsolutePath();
+        String baseDir = Environment.getExternalStorageDirectory().getAbsolutePath();
         String fileName = "CalendarData.csv";
         String filePath = baseDir + File.separator + fileName;
         CSVWriter writer = null;
 
         File file = new File(filePath);
-        if(file.exists()){
+        if (file.exists()) {
             file.delete();
         }
         //Convert List to Array
-        String[]stringArray = new String[eventStrings.size()];
+        String[] stringArray = new String[eventStrings.size()];
         stringArray = eventStrings.toArray(stringArray);
 
-        try{
+        try {
             writer = new CSVWriter(new FileWriter(filePath), '\n', CSVWriter.NO_QUOTE_CHARACTER);
             writer.writeNext(stringArray);
             writer.close();
             Toast.makeText(this, fileName + " created", Toast.LENGTH_LONG).show();
-        }
-        catch (IOException e){
+        } catch (IOException e) {
             Log.d("Couldnt write to Phone", "Error");
         }
 
@@ -513,7 +589,7 @@ public class MainActivity extends Activity
         endString = buildEndString.toString();
         completeString.append(endString).append(", ");
         LatLng latLng = getLocationFromAddress(MainActivity.this, location);
-        if(location != null) {
+        if (location != null) {
             double lat = latLng.latitude;
             double lng = latLng.longitude;
             completeString.append(lat).append(", ").append(lng);
@@ -522,10 +598,10 @@ public class MainActivity extends Activity
         String newString = completeString.toString();
         return newString;
 
-        }
+    }
 
     //Returns day of week as int
-    private int getDayofWeek(DateTime date){
+    private int getDayofWeek(DateTime date) {
         String dateString = date.toString();
 
         String year = dateString.substring(0, 4);
@@ -537,19 +613,18 @@ public class MainActivity extends Activity
         String day = dateString.substring(8, 10);
         int intDay = Integer.valueOf(day);
 
-        java.util.Calendar calendar = new GregorianCalendar(intYear, intMonth-1, intDay);
+        java.util.Calendar calendar = new GregorianCalendar(intYear, intMonth - 1, intDay);
         int dayOfWeek = calendar.get(java.util.Calendar.DAY_OF_WEEK);
-        if(dayOfWeek == 1){
+        if (dayOfWeek == 1) {
             dayOfWeek = 6;
-        }
-        else {
+        } else {
             dayOfWeek = dayOfWeek - 2;
         }
         return dayOfWeek;
     }
 
     //Returns 0 if week is even, 1 if week is uneven
-    private int getWeekOfYear(DateTime date){
+    private int getWeekOfYear(DateTime date) {
         String dateString = date.toString();
 
         String year = dateString.substring(0, 4);
@@ -561,66 +636,66 @@ public class MainActivity extends Activity
         String day = dateString.substring(8, 10);
         int intDay = Integer.valueOf(day);
 
-        java.util.Calendar calendar = new GregorianCalendar(intYear, intMonth-1, intDay);
+        java.util.Calendar calendar = new GregorianCalendar(intYear, intMonth - 1, intDay);
         int weekOfYear = calendar.get(java.util.Calendar.WEEK_OF_YEAR);
-        switch (weekOfYear%2){
-            case 0: weekOfYear = 0;
+        switch (weekOfYear % 2) {
+            case 0:
+                weekOfYear = 0;
                 break;
-            case 1: weekOfYear = 1;
+            case 1:
+                weekOfYear = 1;
         }
 
         return weekOfYear;
     }
 
     //Creates DateTime format from user-input time and date
-    private DateTime createDateFromInput(int year, int month, int day, int hour, int minute){
+    private DateTime createDateFromInput(int year, int month, int day, int hour, int minute) {
 
-        Date date = new GregorianCalendar(year-1, month-1, day, hour, minute).getTime();
+        Date date = new GregorianCalendar(year - 1, month - 1, day, hour, minute).getTime();
         DateTime dateTime = new DateTime(date, TimeZone.getDefault());
 
         return dateTime;
     }
 
-    private void setupButtons(){
-        mCallApiButton = (Button)findViewById(R.id.mCallApiButton);
+    private void setupButtons() {
+        mCallApiButton = (Button) findViewById(R.id.mCallApiButton);
         mCallApiButton.setOnClickListener(new View.OnClickListener() {
             @Override
             public void onClick(View v) {
-                if(yearInput == 0 || monthInput == 0 || dayInput == 0 ){
+                if (yearInput == 0 || monthInput == 0 || dayInput == 0) {
                     Toast.makeText(MainActivity.this, "Enter Time and/or Date first", Toast.LENGTH_LONG).show();
                 }
-                if(yearInput < 1000){
+                if (yearInput < 1000) {
                     Toast.makeText(MainActivity.this, "Enter a valid year(>1000)", Toast.LENGTH_LONG).show();
-                }
-                else {
+                } else {
                     mCallApiButton.setEnabled(false);
                     getResultsFromApi();
                     mCallApiButton.setEnabled(true);
                 }
             }
         });
-        mWriteToStorageButton = (Button)findViewById(R.id.mWriteToStorageButton);
-        mWriteToStorageButton.setOnClickListener(new View.OnClickListener(){
-            public void onClick(View v){
-                if(eventStrings.isEmpty()){
+        mWriteToStorageButton = (Button) findViewById(R.id.mWriteToStorageButton);
+        mWriteToStorageButton.setOnClickListener(new View.OnClickListener() {
+            public void onClick(View v) {
+                if (eventStrings.isEmpty()) {
                     Toast.makeText(MainActivity.this, "There is nothing to write", Toast.LENGTH_LONG).show();
-                }
-                else {
+                } else {
                     mWriteToStorageButton.setEnabled(false);
                     writeCSV(eventStrings);
                     mWriteToStorageButton.setEnabled(true);
                 }
             }
         });
-        mPickEndTimeButton = (Button)findViewById(R.id.mPickEndTimeButton);
+        mPickEndTimeButton = (Button) findViewById(R.id.mPickEndTimeButton);
         mPickEndTimeButton.setOnClickListener(new View.OnClickListener() {
-                    @Override
-                    public void onClick(View view) {
-                        showDialog(END_TIME_DIALOG_ID);
-                    }
-                }
+                                                  @Override
+                                                  public void onClick(View view) {
+                                                      showDialog(END_TIME_DIALOG_ID);
+                                                  }
+                                              }
         );
-        mPickDateAndStartTimeButton = (Button)findViewById(R.id.mPickDateAndStartTimeButton);
+        mPickDateAndStartTimeButton = (Button) findViewById(R.id.mPickDateAndStartTimeButton);
         mPickDateAndStartTimeButton.setOnClickListener(new View.OnClickListener() {
             @Override
             public void onClick(View view) {
@@ -630,7 +705,7 @@ public class MainActivity extends Activity
     }
 
     //Returns a LatLng Object (coordinates) from a given adress
-    private LatLng getLocationFromAddress(Context context, String place){
+    private LatLng getLocationFromAddress(Context context, String place) {
 
         Geocoder coder = new Geocoder(context);
         List<Address> address;
@@ -645,7 +720,7 @@ public class MainActivity extends Activity
             location.getLatitude();
             location.getLongitude();
 
-            latLng = new LatLng(location.getLatitude(), location.getLongitude() );
+            latLng = new LatLng(location.getLatitude(), location.getLongitude());
 
         } catch (Exception ex) {
 
@@ -655,4 +730,5 @@ public class MainActivity extends Activity
         return latLng;
     }
 
-    }
+
+}

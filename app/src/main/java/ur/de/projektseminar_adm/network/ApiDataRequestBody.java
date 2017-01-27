@@ -8,7 +8,7 @@ public class ApiDataRequestBody {
 
     String stringToPost;
 
-    public ApiDataRequestBody(String stringToPost){
-        this.stringToPost = stringToPost;
+    public ApiDataRequestBody(String name){
+        this.stringToPost = name;
     }
 }

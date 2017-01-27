@@ -504,7 +504,7 @@ public class MainActivity extends Activity implements EasyPermissions.Permission
                     .execute();
 
             List<Event> items = events.getItems();
-            postString = new StringBuilder();
+            postString = new StringBuilder("ident, dayOfWeek, weekOfYear, startingTime, endingTime, lat, long");
 
             for (Event event : items) {
                 DateTime start = event.getStart().getDateTime();
@@ -520,13 +520,13 @@ public class MainActivity extends Activity implements EasyPermissions.Permission
                 //if(dayOfWeek == dayOfWeekEvent) {
 
                 String formattedOutput = formatOutput(event.getSummary(), start, end, event.getLocation());
-                postString.append(formattedOutput);
+                postString.append(System.getProperty("line.seperator")).append(formattedOutput);
 
 
                 eventStrings.add(formattedOutput);
             }
             stringToPost = postString.toString();
-            //Log.d("StringTest", stringToPost);
+            Log.d("StringTest", stringToPost);
             //}
             return eventStrings;
         }

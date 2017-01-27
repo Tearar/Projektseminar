@@ -65,6 +65,7 @@ import java.util.*;
 
 import pub.devrel.easypermissions.AfterPermissionGranted;
 import pub.devrel.easypermissions.EasyPermissions;
+import retrofit.http.POST;
 import ur.de.projektseminar_adm.model.Cluster;
 import ur.de.projektseminar_adm.model.ClusterList;
 import ur.de.projektseminar_adm.network.ApiDataRequest;
@@ -82,6 +83,7 @@ public class MainActivity extends Activity implements EasyPermissions.Permission
     private Calendar mService = null;
     private StringBuilder postString;
     private String stringToPost;
+    private SpiceManager spiceManager = new SpiceManager(CalendarTestService.class);
 
     static final int REQUEST_ACCOUNT_PICKER = 1000;
     static final int REQUEST_AUTHORIZATION = 1001;
@@ -121,6 +123,18 @@ public class MainActivity extends Activity implements EasyPermissions.Permission
                 getApplicationContext(), Arrays.asList(SCOPES))
                 .setBackOff(new ExponentialBackOff());
         }
+
+    @Override
+    public void onStart(){
+        spiceManager.start(MainActivity.this);
+        super.onStart();
+    }
+
+    @Override
+    public void onStop(){
+        spiceManager.shouldStop();
+        super.onStop();
+    }
 
     @Override
     protected Dialog onCreateDialog(int id) {
@@ -576,7 +590,6 @@ public class MainActivity extends Activity implements EasyPermissions.Permission
         ApiDataRequestBody apiDataRequestBody = new ApiDataRequestBody(stringToPost);
         ApiDataRequest adr = new ApiDataRequest(apiDataRequestBody);
 
-        SpiceManager spiceManager = new SpiceManager(CalendarTestService.class);
         spiceManager.execute(adr, "adr", DurationInMillis.ONE_SECOND * 5, new RequestListener<ClusterList>() {
             @Override
             public void onRequestFailure(SpiceException spiceException) {

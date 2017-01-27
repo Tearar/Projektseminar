@@ -48,20 +48,30 @@ import android.widget.TextView;
 import android.widget.TimePicker;
 import android.widget.Toast;
 
+import java.io.BufferedOutputStream;
 import java.io.File;
 import java.io.FileWriter;
 import java.io.IOException;
+import java.io.OutputStream;
+import java.net.HttpURLConnection;
+import java.net.MalformedURLException;
+import java.net.URL;
+import java.net.URLConnection;
 import java.util.*;
 
 import pub.devrel.easypermissions.AfterPermissionGranted;
 import pub.devrel.easypermissions.EasyPermissions;
 
-public class MainActivity extends Activity
-        implements EasyPermissions.PermissionCallbacks {
+import static com.google.api.client.http.HttpMethods.POST;
+
+public class MainActivity extends Activity implements EasyPermissions.PermissionCallbacks {
     GoogleAccountCredential mCredential;
     private TextView mOutputText;
     private Button mCallApiButton, mWriteToStorageButton, mPickEndTimeButton, mPickDateAndStartTimeButton;
-    ProgressDialog mProgress;
+    private ProgressDialog mProgress;
+    private Exception mLastError = null;
+    private Calendar mService = null;
+    private StringBuilder postString;
 
     static final int REQUEST_ACCOUNT_PICKER = 1000;
     static final int REQUEST_AUTHORIZATION = 1001;
@@ -70,6 +80,8 @@ public class MainActivity extends Activity
     static final int START_TIME_DIALOG_ID = 0;
     static final int END_TIME_DIALOG_ID = 2;
     static final int DATE_DIALOG_ID = 1;
+    static final int CALL_API_ID = 1;
+    static final int INSERT_EVENT_ID = 2;
     int yearInput, monthInput, dayInput, startHourInput, startMinuteInput, endHourInput, endMinuteInput;
 
     private static final String PREF_ACCOUNT_NAME = "accountName";
@@ -164,11 +176,11 @@ public class MainActivity extends Activity
         if (!isGooglePlayServicesAvailable()) {
             acquireGooglePlayServices();
         } else if (mCredential.getSelectedAccountName() == null) {
-            chooseAccount();
+            chooseAccount(CALL_API_ID);
         } else if (!isDeviceOnline()) {
             mOutputText.setText("No network connection available.");
         } else {
-            new MakeRequestTask(mCredential).execute();
+            new CallApiTask(mCredential).execute();
         }
     }
 
@@ -176,11 +188,11 @@ public class MainActivity extends Activity
         if (!isGooglePlayServicesAvailable()) {
             acquireGooglePlayServices();
         } else if (mCredential.getSelectedAccountName() == null) {
-            chooseAccount();
+            chooseAccount(INSERT_EVENT_ID);
         } else if (!isDeviceOnline()) {
             mOutputText.setText("No network connection available.");
         } else {
-            new MakeInsertTask(mCredential).execute();
+            new InsertEventTask(mCredential).execute();
         }
 
     }
@@ -196,15 +208,19 @@ public class MainActivity extends Activity
      * is granted.
      */
     @AfterPermissionGranted(REQUEST_PERMISSION_GET_ACCOUNTS)
-    private void chooseAccount() {
+    private void chooseAccount(int id) {
         if (EasyPermissions.hasPermissions(
                 this, Manifest.permission.GET_ACCOUNTS)) {
             String accountName = getPreferences(Context.MODE_PRIVATE)
                     .getString(PREF_ACCOUNT_NAME, null);
             if (accountName != null) {
                 mCredential.setSelectedAccountName(accountName);
-                //getResultsFromApi();
-                insertEventThroughApi();
+                if(id == CALL_API_ID){
+                    getResultsFromApi();
+                }
+                if(id == INSERT_EVENT_ID){
+                    insertEventThroughApi();
+                }
             } else {
                 // Start a dialog from which the user can choose an account
                 startActivityForResult(
@@ -364,11 +380,11 @@ public class MainActivity extends Activity
         dialog.show();
     }
 
-    private class MakeInsertTask extends AsyncTask<Void, Void, String> {
-        private Calendar mService = null;
-        private Exception mLastError = null;
+    private class InsertEventTask extends AsyncTask<Void, Void, String> {
+        //private Calendar mService = null;
+        //private Exception mLastError = null;
 
-        public MakeInsertTask(GoogleAccountCredential credential){
+        public InsertEventTask(GoogleAccountCredential credential){
             HttpTransport transport = AndroidHttp.newCompatibleTransport();
             JsonFactory jsonFactory = JacksonFactory.getDefaultInstance();
             mService = new Calendar.Builder(transport, jsonFactory, credential).setApplicationName("Calendar Test").build();
@@ -429,11 +445,11 @@ public class MainActivity extends Activity
      * An asynchronous task that handles the Google Calendar API call.
      * Placing the API calls in their own task ensures the UI stays responsive.
      */
-    private class MakeRequestTask extends AsyncTask<Void, Void, List<String>> {
-        private Calendar mService = null;
-        private Exception mLastError = null;
+    private class CallApiTask extends AsyncTask<Void, Void, List<String>> {
+        //private Calendar mService = null;
+        //private Exception mLastError = null;
 
-        public MakeRequestTask(GoogleAccountCredential credential) {
+        public CallApiTask(GoogleAccountCredential credential) {
             HttpTransport transport = AndroidHttp.newCompatibleTransport();
             JsonFactory jsonFactory = JacksonFactory.getDefaultInstance();
             mService = new Calendar.Builder(
@@ -479,6 +495,7 @@ public class MainActivity extends Activity
                     .execute();
 
             List<Event> items = events.getItems();
+            postString = new StringBuilder();
 
             for (Event event : items) {
                 DateTime start = event.getStart().getDateTime();
@@ -494,6 +511,8 @@ public class MainActivity extends Activity
                 //if(dayOfWeek == dayOfWeekEvent) {
 
                 String formattedOutput = formatOutput(event.getSummary(), start, end, event.getLocation());
+                postString.append(formattedOutput);
+
                 eventStrings.add(formattedOutput);
             }
             //}
@@ -538,6 +557,22 @@ public class MainActivity extends Activity
             }
         }
 
+
+    }
+    private void postStringToWebservice() throws IOException {
+
+        String stringToPost = postString.toString();
+        URL url = new URL("http://test.com");
+        HttpURLConnection connection = (HttpURLConnection)url.openConnection();
+        try{
+            connection.setRequestMethod("POST");
+            connection.setChunkedStreamingMode(0);
+            OutputStream out = new BufferedOutputStream(connection.getOutputStream());
+
+
+        }finally {
+            connection.disconnect();
+        }
 
     }
 
@@ -682,7 +717,12 @@ public class MainActivity extends Activity
                     Toast.makeText(MainActivity.this, "There is nothing to write", Toast.LENGTH_LONG).show();
                 } else {
                     mWriteToStorageButton.setEnabled(false);
-                    writeCSV(eventStrings);
+                    //writeCSV(eventStrings);
+                    /*try {
+                        postStringToWebservice();
+                    } catch (IOException e) {
+                        e.printStackTrace();
+                    }*/
                     mWriteToStorageButton.setEnabled(true);
                 }
             }

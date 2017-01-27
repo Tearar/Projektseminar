@@ -18,6 +18,10 @@ import com.google.api.services.calendar.CalendarScopes;
 import com.google.api.client.util.DateTime;
 
 import com.google.api.services.calendar.model.*;
+import com.octo.android.robospice.SpiceManager;
+import com.octo.android.robospice.persistence.DurationInMillis;
+import com.octo.android.robospice.persistence.exception.SpiceException;
+import com.octo.android.robospice.request.listener.RequestListener;
 import com.opencsv.CSVWriter;
 
 import android.Manifest;
@@ -61,6 +65,11 @@ import java.util.*;
 
 import pub.devrel.easypermissions.AfterPermissionGranted;
 import pub.devrel.easypermissions.EasyPermissions;
+import ur.de.projektseminar_adm.model.Cluster;
+import ur.de.projektseminar_adm.model.ClusterList;
+import ur.de.projektseminar_adm.network.ApiDataRequest;
+import ur.de.projektseminar_adm.network.ApiDataRequestBody;
+import ur.de.projektseminar_adm.network.CalendarTestService;
 
 import static com.google.api.client.http.HttpMethods.POST;
 
@@ -72,6 +81,7 @@ public class MainActivity extends Activity implements EasyPermissions.Permission
     private Exception mLastError = null;
     private Calendar mService = null;
     private StringBuilder postString;
+    private String stringToPost;
 
     static final int REQUEST_ACCOUNT_PICKER = 1000;
     static final int REQUEST_AUTHORIZATION = 1001;
@@ -87,6 +97,7 @@ public class MainActivity extends Activity implements EasyPermissions.Permission
     private static final String PREF_ACCOUNT_NAME = "accountName";
     private static final String[] SCOPES = {CalendarScopes.CALENDAR};
     private List<String> eventStrings = new ArrayList<String>();
+    private ArrayList<Cluster> localClusterList;
 
     /**
      * Create the main activity.
@@ -161,7 +172,7 @@ public class MainActivity extends Activity implements EasyPermissions.Permission
             endHourInput = hourOfDay;
             endMinuteInput = minute;
             Toast.makeText(MainActivity.this, "Ending Time: " + endHourInput + ":" + endMinuteInput, Toast.LENGTH_LONG).show();
-            insertEventThroughApi();
+            //insertEventThroughApi();
         }
     };
 
@@ -268,8 +279,7 @@ public class MainActivity extends Activity implements EasyPermissions.Permission
                     String accountName =
                             data.getStringExtra(AccountManager.KEY_ACCOUNT_NAME);
                     if (accountName != null) {
-                        SharedPreferences settings =
-                                getPreferences(Context.MODE_PRIVATE);
+                        SharedPreferences settings = getPreferences(Context.MODE_PRIVATE);
                         SharedPreferences.Editor editor = settings.edit();
                         editor.putString(PREF_ACCOUNT_NAME, accountName);
                         editor.apply();
@@ -452,8 +462,7 @@ public class MainActivity extends Activity implements EasyPermissions.Permission
         public CallApiTask(GoogleAccountCredential credential) {
             HttpTransport transport = AndroidHttp.newCompatibleTransport();
             JsonFactory jsonFactory = JacksonFactory.getDefaultInstance();
-            mService = new Calendar.Builder(
-                    transport, jsonFactory, credential)
+            mService = new Calendar.Builder(transport, jsonFactory, credential)
                     .setApplicationName("Calendar Test")
                     .build();
         }
@@ -513,8 +522,11 @@ public class MainActivity extends Activity implements EasyPermissions.Permission
                 String formattedOutput = formatOutput(event.getSummary(), start, end, event.getLocation());
                 postString.append(formattedOutput);
 
+
                 eventStrings.add(formattedOutput);
             }
+            stringToPost = postString.toString();
+            //Log.d("StringTest", stringToPost);
             //}
             return eventStrings;
         }
@@ -559,9 +571,27 @@ public class MainActivity extends Activity implements EasyPermissions.Permission
 
 
     }
-    private void postStringToWebservice() throws IOException {
+    public void postStringToWebservice() {
 
-        String stringToPost = postString.toString();
+        ApiDataRequestBody apiDataRequestBody = new ApiDataRequestBody(stringToPost);
+        ApiDataRequest adr = new ApiDataRequest(apiDataRequestBody);
+
+        SpiceManager spiceManager = new SpiceManager(CalendarTestService.class);
+        spiceManager.execute(adr, "adr", DurationInMillis.ONE_SECOND * 5, new RequestListener<ClusterList>() {
+            @Override
+            public void onRequestFailure(SpiceException spiceException) {
+                Toast.makeText(MainActivity.this, "failure", Toast.LENGTH_SHORT).show();
+            }
+
+            @Override
+            public void onRequestSuccess(ClusterList clusterList) {
+                localClusterList = new ArrayList<Cluster>(clusterList.getClusterList());
+                Log.d("ClusterTest", localClusterList.get(0).toString());
+
+            }
+        });
+
+        /*String stringToPost = postString.toString();
         URL url = new URL("http://test.com");
         HttpURLConnection connection = (HttpURLConnection)url.openConnection();
         try{
@@ -572,7 +602,7 @@ public class MainActivity extends Activity implements EasyPermissions.Permission
 
         }finally {
             connection.disconnect();
-        }
+        }*/
 
     }
 

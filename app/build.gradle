@@ -33,7 +33,6 @@ dependencies {
     }
     compile 'com.google.android.gms:play-services-location:9.0.2'
     compile group: 'com.opencsv', name: 'opencsv', version: '3.7'
-
-
     compile 'com.google.android.gms:play-services-appindexing:9.0.2'
+    compile 'com.octo.android.robospice:robospice-retrofit:1.4.11'
 }

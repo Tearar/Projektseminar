@@ -6,9 +6,9 @@ package ur.de.projektseminar_adm.network;
 
 public class ApiDataRequestBody {
 
-    String stringToPost;
+    String name;
 
     public ApiDataRequestBody(String name){
-        this.stringToPost = name;
+        this.name = name;
     }
 }

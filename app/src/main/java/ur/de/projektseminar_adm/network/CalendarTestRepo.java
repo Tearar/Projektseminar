@@ -10,7 +10,7 @@ import ur.de.projektseminar_adm.model.ClusterList;
 
 public interface CalendarTestRepo {
 
-    @POST("/api/test")
+    @POST("/cluster")
     ClusterList postData(@Body ApiDataRequestBody apiDataRequestBody);
 
 }

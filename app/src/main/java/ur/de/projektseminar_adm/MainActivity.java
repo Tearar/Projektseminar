@@ -52,27 +52,18 @@ import android.widget.TextView;
 import android.widget.TimePicker;
 import android.widget.Toast;
 
-import java.io.BufferedOutputStream;
 import java.io.File;
 import java.io.FileWriter;
 import java.io.IOException;
-import java.io.OutputStream;
-import java.net.HttpURLConnection;
-import java.net.MalformedURLException;
-import java.net.URL;
-import java.net.URLConnection;
 import java.util.*;
 
 import pub.devrel.easypermissions.AfterPermissionGranted;
 import pub.devrel.easypermissions.EasyPermissions;
-import retrofit.http.POST;
 import ur.de.projektseminar_adm.model.Cluster;
 import ur.de.projektseminar_adm.model.ClusterList;
 import ur.de.projektseminar_adm.network.ApiDataRequest;
 import ur.de.projektseminar_adm.network.ApiDataRequestBody;
 import ur.de.projektseminar_adm.network.CalendarTestService;
-
-import static com.google.api.client.http.HttpMethods.POST;
 
 public class MainActivity extends Activity implements EasyPermissions.PermissionCallbacks {
     GoogleAccountCredential mCredential;
@@ -81,7 +72,7 @@ public class MainActivity extends Activity implements EasyPermissions.Permission
     private ProgressDialog mProgress;
     private Exception mLastError = null;
     private Calendar mService = null;
-    private StringBuilder postString;
+    private StringBuilder stringBuilder;
     private String stringToPost;
     private SpiceManager spiceManager = new SpiceManager(CalendarTestService.class);
 
@@ -518,7 +509,7 @@ public class MainActivity extends Activity implements EasyPermissions.Permission
                     .execute();
 
             List<Event> items = events.getItems();
-            postString = new StringBuilder("ident, dayOfWeek, weekOfYear, startingTime, endingTime, lat, long");
+            stringBuilder = new StringBuilder("ident, dayOfWeek, weekOfYear, startingTime, endingTime, lat, long");
 
             for (Event event : items) {
                 DateTime start = event.getStart().getDateTime();
@@ -534,12 +525,12 @@ public class MainActivity extends Activity implements EasyPermissions.Permission
                 //if(dayOfWeek == dayOfWeekEvent) {
 
                 String formattedOutput = formatOutput(event.getSummary(), start, end, event.getLocation());
-                postString.append(System.getProperty("line.seperator")).append(formattedOutput);
+                stringBuilder.append("\n").append(formattedOutput);
 
 
                 eventStrings.add(formattedOutput);
             }
-            stringToPost = postString.toString();
+            stringToPost = stringBuilder.toString();
             Log.d("StringTest", stringToPost);
             //}
             return eventStrings;
@@ -594,17 +585,18 @@ public class MainActivity extends Activity implements EasyPermissions.Permission
             @Override
             public void onRequestFailure(SpiceException spiceException) {
                 Toast.makeText(MainActivity.this, "failure", Toast.LENGTH_SHORT).show();
+
             }
 
             @Override
             public void onRequestSuccess(ClusterList clusterList) {
                 localClusterList = new ArrayList<Cluster>(clusterList.getClusterList());
-                Log.d("ClusterTest", localClusterList.get(0).toString());
+                Log.d("ClusterTest", localClusterList.get(0).getIdent());
 
             }
         });
 
-        /*String stringToPost = postString.toString();
+        /*String stringToPost = stringBuilder.toString();
         URL url = new URL("http://test.com");
         HttpURLConnection connection = (HttpURLConnection)url.openConnection();
         try{
@@ -761,11 +753,7 @@ public class MainActivity extends Activity implements EasyPermissions.Permission
                 } else {
                     mWriteToStorageButton.setEnabled(false);
                     //writeCSV(eventStrings);
-                    /*try {
-                        postStringToWebservice();
-                    } catch (IOException e) {
-                        e.printStackTrace();
-                    }*/
+                    postStringToWebservice();
                     mWriteToStorageButton.setEnabled(true);
                 }
             }

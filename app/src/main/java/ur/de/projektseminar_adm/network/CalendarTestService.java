@@ -9,7 +9,7 @@ import com.octo.android.robospice.retrofit.RetrofitGsonSpiceService;
 public class CalendarTestService extends RetrofitGsonSpiceService {
 
     private final static String BASE = "wi2-intern.ur.de";
-    private final static int PORT = 8080;
+    private final static int PORT = 50500;
     private final static String BASE_URL = "http://" + BASE + ":" + PORT + "/";
 
     @Override
